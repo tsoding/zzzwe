@@ -26,8 +26,9 @@ class V2 {
     }
 }
 
-const speed = 1000;
-const radius = 69;
+const PLAYER_COLOR = "#f43841";
+const PLAYER_SPEED = 1000;
+const PLAYER_RADIUS = 69;
 const TUTORIAL_POPUP_SPEED = 1.7;
 const BULLET_RADIUS = 42;
 const BULLET_SPEED = 2000;
@@ -45,7 +46,6 @@ class Bullet {
         this.pos = pos;
         this.vel = vel;
         this.lifetime = BULLET_LIFETIME;
-        console.log(this);
     }
 
     update(dt) {
@@ -54,7 +54,7 @@ class Bullet {
     }
 
     render(context) {
-        fillCircle(context, this.pos, BULLET_RADIUS, "red");
+        fillCircle(context, this.pos, BULLET_RADIUS, PLAYER_COLOR);
     }
 }
 
@@ -154,7 +154,7 @@ class Tutorial {
 
 class Game {
     constructor() {
-        this.playerPos = new V2(radius + 10, radius + 10);
+        this.playerPos = new V2(PLAYER_RADIUS + 10, PLAYER_RADIUS + 10);
         this.mousePos = new V2(0, 0);
         this.pressedKeys = new Set();
         this.tutorial = new Tutorial();
@@ -167,7 +167,7 @@ class Game {
         let moved = false;
         for (let key of this.pressedKeys) {
             if (key in directionMap) {
-                vel = vel.add(directionMap[key].scale(speed));
+                vel = vel.add(directionMap[key].scale(PLAYER_SPEED));
                 moved = true;
             }
         }
@@ -191,7 +191,7 @@ class Game {
         const height = context.canvas.height;
 
         context.clearRect(0, 0, width, height);
-        fillCircle(context, this.playerPos, radius, "red");
+        fillCircle(context, this.playerPos, PLAYER_RADIUS, PLAYER_COLOR);
 
         this.tutorial.render(context);
 
