@@ -151,7 +151,7 @@ class Game {
     }
 
     mouseDown(event) {
-        const mousePos = new V2(event.screenX, event.screenY);
+        const mousePos = new V2(event.offsetX, event.offsetY);
         const bulletVel = mousePos
               .sub(this.playerPos)
               .normalize()
