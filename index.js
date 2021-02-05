@@ -233,7 +233,7 @@ function renderEntities(context, entities) {
 // TODO(#6): killing enemies does not give any points
 // TODO(#7): the field of view depends on the resolution
 // TODO(#8): the game stops when you unfocus the browser
-// TODO: some sort of inertia during player movement
+// TODO(#9): some sort of inertia during player movement
 class Game {
     constructor() {
         // TODO: the player should be initially positioned at the center of the screen
