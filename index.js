@@ -69,6 +69,7 @@ class Particle {
 
     render(context) {
         const a = this.lifetime / PARTICLE_LIFETIME;
+        // TODO(#1): more control over color modificatons
         fillCircle(context, this.pos, this.radius, `rgba(158, 149, 199, ${a})`);
     }
 
@@ -78,9 +79,11 @@ class Particle {
     }
 }
 
+// TODO: burst particle in a particular direction;
 function particleBurst(particles, center) {
     const N = Math.random() * PARTICLES_COUNT;
     for (let i = 0; i < N; ++i) {
+        // TODO: proper random floating point ranges
         particles.push(new Particle(
             center,
             polarV2(Math.random() * PARTICLE_MAG, Math.random() * 2 * Math.PI),
@@ -225,8 +228,15 @@ function renderEntities(context, entities) {
     }
 }
 
+// TODO: no way to pause the game
+// TODO: no way for the player to die
+// TODO: killing enemies does not give any points
+// TODO: the field of view depends on the resolution
+// TODO: the game stops when you unfocus the browser
+// TODO: some sort of inertia during player movement
 class Game {
     constructor() {
+        // TODO: the player should be initially positioned at the center of the screen
         this.playerPos = new V2(PLAYER_RADIUS + 10, PLAYER_RADIUS + 10);
         this.mousePos = new V2(0, 0);
         this.pressedKeys = new Set();
@@ -288,6 +298,7 @@ class Game {
             if (this.enemySpawnCooldown <= 0.0) {
                 this.spawnEnemy();
                 this.enemySpawnCooldown = this.enemySpawnRate;
+                // TODO: spawning rate ramps up too quickly
                 this.enemySpawnRate = Math.max(0.01, this.enemySpawnRate - 0.01);
             }
         }
@@ -308,6 +319,7 @@ class Game {
     }
 
     spawnEnemy() {
+        // TODO: sometimes enemies are spawned on the screen
         let dir = Math.random() * 2 * Math.PI;
         this.enemies.push(new Enemy(this.playerPos.add(polarV2(ENEMY_SPAWN_DISTANCE, dir))));
     }
