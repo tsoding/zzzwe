@@ -83,7 +83,7 @@ class Particle {
 function particleBurst(particles, center) {
     const N = Math.random() * PARTICLES_COUNT;
     for (let i = 0; i < N; ++i) {
-        // TODO: proper random floating point ranges
+        // TODO(#3): proper random floating point ranges
         particles.push(new Particle(
             center,
             polarV2(Math.random() * PARTICLE_MAG, Math.random() * 2 * Math.PI),
