@@ -231,7 +231,7 @@ function renderEntities(context, entities) {
 // TODO(#4): no way to pause the game
 // TODO(#5): no way for the player to die
 // TODO(#6): killing enemies does not give any points
-// TODO: the field of view depends on the resolution
+// TODO(#7): the field of view depends on the resolution
 // TODO: the game stops when you unfocus the browser
 // TODO: some sort of inertia during player movement
 class Game {
