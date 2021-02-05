@@ -79,7 +79,7 @@ class Particle {
     }
 }
 
-// TODO: burst particle in a particular direction;
+// TODO(#2): burst particle in a particular direction;
 function particleBurst(particles, center) {
     const N = Math.random() * PARTICLES_COUNT;
     for (let i = 0; i < N; ++i) {
