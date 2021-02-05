@@ -234,6 +234,7 @@ function renderEntities(context, entities) {
 // TODO(#7): the field of view depends on the resolution
 // TODO(#8): the game stops when you unfocus the browser
 // TODO(#9): some sort of inertia during player movement
+// TODO(#13): player can easily get lost outside of the screen
 class Game {
     constructor() {
         // TODO(#10): the player should be initially positioned at the center of the screen
