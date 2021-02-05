@@ -298,7 +298,7 @@ class Game {
             if (this.enemySpawnCooldown <= 0.0) {
                 this.spawnEnemy();
                 this.enemySpawnCooldown = this.enemySpawnRate;
-                // TODO: spawning rate ramps up too quickly
+                // TODO(#11): spawning rate ramps up too quickly
                 this.enemySpawnRate = Math.max(0.01, this.enemySpawnRate - 0.01);
             }
         }
