@@ -236,7 +236,7 @@ function renderEntities(context, entities) {
 // TODO(#9): some sort of inertia during player movement
 class Game {
     constructor() {
-        // TODO: the player should be initially positioned at the center of the screen
+        // TODO(#10): the player should be initially positioned at the center of the screen
         this.playerPos = new V2(PLAYER_RADIUS + 10, PLAYER_RADIUS + 10);
         this.mousePos = new V2(0, 0);
         this.pressedKeys = new Set();
