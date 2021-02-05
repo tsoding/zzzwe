@@ -144,16 +144,12 @@ class TutorialPopup {
             this.dalpha = 0.0;
             this.alpha = 0.0;
 
-            if (this.onFadedOut !== undefined) {
-                this.onFadedOut();
-            }
+            this.onFadedOut?.();
         } else if (this.dalpha > 0.0 && this.alpha >= 1.0) {
             this.dalpha = 0.0;
             this.alpha = 1.0;
 
-            if (this.onFadedIn !== undefined) {
-                this.onFadedIn();
-            }
+            this.onFadedIn?.();
         }
     }
 
