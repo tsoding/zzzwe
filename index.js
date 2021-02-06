@@ -1,3 +1,39 @@
+class Color {
+    constructor(r, g, b, a) {
+        this.r = r;
+        this.g = g;
+        this.b = b;
+        this.a = a;
+    }
+
+    toRgba() {
+        return `rgba(${this.r * 255}, ${this.g * 255}, ${this.b * 255}, ${this.a})`;
+    }
+
+    withAlpha(a) {
+        return new Color(this.r, this.g, this.b, a);
+    }
+
+    grayScale() {
+        let x = Math.max(this.r, this.g, this.b);
+        return new Color(x, x, x, this.a);
+    }
+
+    static hex(hexcolor) {
+        let matches =
+            hexcolor.match(/#([0-9a-z]{2})([0-9a-z]{2})([0-9a-z]{2})/i);
+        if (matches) {
+            let [, r, g, b] = matches;
+            return new Color(parseInt(r, 16) / 255.0,
+                             parseInt(g, 16) / 255.0,
+                             parseInt(b, 16) / 255.0,
+                             1.0);
+        } else {
+            throw `Could not parse ${hexcolor} as color`;
+        }
+    }
+}
+
 class V2 {
     constructor(x, y) {
         this.x = x;
@@ -34,7 +70,7 @@ class V2 {
     }
 }
 
-const PLAYER_COLOR = "#f43841";
+const PLAYER_COLOR = Color.hex("#f43841");
 const PLAYER_SPEED = 1000;
 const PLAYER_RADIUS = 69;
 const TUTORIAL_POPUP_SPEED = 1.7;
@@ -43,7 +79,7 @@ const BULLET_SPEED = 2000;
 const BULLET_LIFETIME = 5.0;
 const ENEMY_SPEED = PLAYER_SPEED / 3;
 const ENEMY_RADIUS = PLAYER_RADIUS;
-const ENEMY_COLOR = "#9e95c7";
+const ENEMY_COLOR = Color.hex("#9e95c7");
 const ENEMY_SPAWN_COOLDOWN = 1.0;
 const ENEMY_SPAWN_DISTANCE = 1500.0;
 const PARTICLES_COUNT = 50;
@@ -69,8 +105,8 @@ class Particle {
 
     render(context) {
         const a = this.lifetime / PARTICLE_LIFETIME;
-        // TODO(#1): more control over color modificatons
-        fillCircle(context, this.pos, this.radius, `rgba(158, 149, 199, ${a})`);
+        fillCircle(context, this.pos, this.radius,
+                   PARTICLE_COLOR.withAlpha(a));
     }
 
     update(dt) {
@@ -232,21 +268,24 @@ function renderEntities(context, entities) {
 // TODO(#9): some sort of inertia during player movement
 // TODO(#13): player can easily get lost outside of the screen
 class Game {
-    constructor() {
-        // TODO(#10): the player should be initially positioned at the center of the screen
-        this.playerPos = new V2(PLAYER_RADIUS + 10, PLAYER_RADIUS + 10);
-        this.mousePos = new V2(0, 0);
-        this.pressedKeys = new Set();
-        this.tutorial = new Tutorial();
-        this.playerLearntHowToMove = false;
-        this.bullets = [];
-        this.enemies = [];
-        this.particles = [];
-        this.enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
-        this.enemySpawnCooldown = this.enemySpawnRate;
-    }
+    // TODO(#10): the player should be initially positioned at the center of the screen
+    playerPos = new V2(PLAYER_RADIUS + 10, PLAYER_RADIUS + 10);
+    mousePos = new V2(0, 0);
+    pressedKeys = new Set();
+    tutorial = new Tutorial();
+    playerLearntHowToMove = false;
+    bullets = [];
+    enemies = [];
+    particles = [];
+    enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
+    enemySpawnCooldown = this.enemySpawnRate;
+    paused = false;
 
     update(dt) {
+        if (this.paused) {
+            return;
+        }
+
         let vel = new V2(0, 0);
         let moved = false;
         for (let key of this.pressedKeys) {
@@ -321,7 +360,15 @@ class Game {
         this.enemies.push(new Enemy(this.playerPos.add(V2.polar(ENEMY_SPAWN_DISTANCE, dir))));
     }
 
+    togglePause() {
+        this.paused = !this.paused;
+    }
+
     keyDown(event) {
+        if (event.code == 'Space') {
+            this.togglePause();
+        }
+
         this.pressedKeys.add(event.code);
     }
 
@@ -347,10 +394,10 @@ class Game {
     }
 }
 
-function fillCircle(context, center, radius, color = "green") {
+function fillCircle(context, center, radius, color) {
     context.beginPath();
     context.arc(center.x, center.y, radius, 0, 2 * Math.PI, false);
-    context.fillStyle = color;
+    context.fillStyle = color.toRgba();
     context.fill();
 }
 
