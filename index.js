@@ -388,6 +388,8 @@ class Player {
 
     constructor(pos) {
         this.pos = pos;
+        this.accuracy = 0;
+        this.shootCount = 0;
     }
 
     render(camera) {
@@ -405,6 +407,7 @@ class Player {
     }
 
     shootAt(target) {
+        this.shootCount += 1;
         const bulletDir = target
               .sub(this.pos)
               .normalize();
@@ -483,6 +486,7 @@ class Game {
                     if (enemy.pos.dist(bullet.pos) <= BULLET_RADIUS + ENEMY_RADIUS) {
                         this.score += ENEMY_KILL_SCORE;
                         this.player.heal(ENEMY_KILL_HEAL);
+                        this.player.accuracy += 1;
                         bullet.lifetime = 0.0;
                         enemy.ded = true;
                         particleBurst(this.particles, enemy.pos, ENEMY_COLOR);
@@ -551,7 +555,8 @@ class Game {
         if (this.paused) {
             this.camera.fillMessage("PAUSED (SPACE to resume)", MESSAGE_COLOR);
         } else if(this.player.health <= 0.0) {
-            this.camera.fillMessage(`YOUR SCORE: ${this.score} (F5 to restart)`, MESSAGE_COLOR);
+            const accuracy = Math.ceil(100 * this.player.accuracy / Math.max(this.player.shootCount, 1.0));
+            this.camera.fillMessage(`YOUR SCORE: ${this.score}.  ACCURACY ${accuracy}%.  (F5 to restart)`, MESSAGE_COLOR);
         } else {
             this.tutorial.render(this.camera);
         }
