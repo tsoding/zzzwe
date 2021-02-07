@@ -85,6 +85,7 @@ class Camera {
 
     constructor(context) {
         this.context = context;
+        this.motionBlur = true;
     }
 
     update(dt) {
@@ -242,14 +243,22 @@ class Bullet {
         this.pos = pos;
         this.vel = vel;
         this.lifetime = BULLET_LIFETIME;
+        this.dt = 0;
     }
 
     update(dt) {
         this.pos = this.pos.add(this.vel.scale(dt));
         this.lifetime -= dt;
+        this.dt = dt;
     }
 
     render(camera) {
+        if (camera.motionBlur) {
+            camera.fillCircle(this.pos.add(this.vel.scale(this.dt * 0.83)), BULLET_RADIUS, PLAYER_COLOR.withAlpha(0.25));
+            camera.fillCircle(this.pos.add(this.vel.scale(this.dt * 0.415)), BULLET_RADIUS, PLAYER_COLOR.withAlpha(0.5));
+            camera.fillCircle(this.pos.sub(this.vel.scale(this.dt * 0.415)), BULLET_RADIUS, PLAYER_COLOR.withAlpha(0.5));
+            camera.fillCircle(this.pos.sub(this.vel.scale(this.dt * 0.83)), BULLET_RADIUS, PLAYER_COLOR.withAlpha(0.25));
+        }
         camera.fillCircle(this.pos, BULLET_RADIUS, PLAYER_COLOR);
     }
 }
@@ -574,6 +583,10 @@ class Game {
 
         if (event.code == 'Space') {
             this.togglePause();
+        }
+
+        if(event.code == "KeyM") {
+            this.camera.motionBlur = !this.camera.motionBlur;
         }
 
         this.pressedKeys.add(event.code);
