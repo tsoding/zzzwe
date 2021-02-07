@@ -602,7 +602,7 @@ class Game {
 }
 
 (() => {
-    const canvas = document.getElementById("game");
+    const canvas = document.getElementById("game-canvas");
     const context = canvas.getContext("2d");
     let windowWasResized = true;
 
