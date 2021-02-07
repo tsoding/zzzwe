@@ -389,7 +389,7 @@ class Player {
     constructor(pos) {
         this.pos = pos;
         this.accuracy = 0;
-        this.shootCount = 0;
+        this.shootCount = -1; // Don't count tutorial shoot
     }
 
     render(camera) {
