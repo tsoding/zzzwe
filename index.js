@@ -445,19 +445,22 @@ class Player {
 // TODO(#9): some sort of inertia during player movement
 class Game {
     // TODO(#10): the player should be initially positioned at the center of the screen
-    player = new Player(new V2(0, 0));
-    score = 0;
-    mousePos = new V2(0, 0);
-    pressedKeys = new Set();
-    tutorial = new Tutorial();
-    bullets = [];
-    enemies = [];
-    particles = [];
-    enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
-    enemySpawnCooldown = this.enemySpawnRate;
-    paused = false;
+    initialState = () => ({
+        player: new Player(new V2(0, 0)),
+        score: 0,
+        mousePos: new V2(0, 0),
+        pressedKeys: new Set(),
+        tutorial: new Tutorial(),
+        bullets: [],
+        enemies: [],
+        particles: [],
+        enemySpawnRate: ENEMY_SPAWN_COOLDOWN,
+        enemySpawnCooldown: ENEMY_SPAWN_COOLDOWN,
+        paused: false,
+    })
 
     constructor(context) {
+        Object.assign(this, this.initialState());
         this.camera = new Camera(context);
     }
 
@@ -569,7 +572,7 @@ class Game {
         if (this.paused) {
             this.camera.fillMessage("PAUSED (SPACE to resume)", MESSAGE_COLOR);
         } else if(this.player.health <= 0.0) {
-            this.camera.fillMessage(`YOUR SCORE: ${this.score} (F5 to restart)`, MESSAGE_COLOR);
+            this.camera.fillMessage(`YOUR SCORE: ${this.score} (SPACE to restart)`, MESSAGE_COLOR);
         } else {
             this.tutorial.render(this.camera);
         }
@@ -581,12 +584,17 @@ class Game {
         this.enemies.push(new Enemy(this.player.pos.add(V2.polar(ENEMY_SPAWN_DISTANCE, dir))));
     }
 
+    restart() {
+        Object.assign(this, this.initialState());
+    }
+
     togglePause() {
         this.paused = !this.paused;
     }
 
     keyDown(event) {
-        if (this.player.health <= 0.0) {
+        if (this.player.health <= 0.0 && event.code == 'Space') {
+            this.restart();
             return;
         }
 
