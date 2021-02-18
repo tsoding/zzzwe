@@ -636,6 +636,8 @@ class Game {
 
     window.requestAnimationFrame(step);
 
+    // TODO(#30): game is not playable on mobile without external keyboard
+
     document.addEventListener('keydown', event => {
         game.keyDown(event);
     });
