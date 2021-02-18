@@ -157,6 +157,7 @@ const BULLET_SPEED = 2000;
 const BULLET_LIFETIME = 5.0;
 const ENEMY_SPEED = PLAYER_SPEED / 3;
 const ENEMY_RADIUS = PLAYER_RADIUS;
+const ENEMY_SPAWN_ANIMATION_SPEED = ENEMY_RADIUS * 8;
 const ENEMY_COLOR = Color.hex("#9e95c7");
 const ENEMY_SPAWN_COOLDOWN = 1.0;
 const ENEMY_SPAWN_DISTANCE = 1500.0;
@@ -219,8 +220,9 @@ class Enemy {
     constructor(pos) {
         this.pos = pos;
         this.ded = false;
+        this.radius = 0.0;
     }
-
+    
     update(dt, followPos) {
         let vel = followPos
             .sub(this.pos)
@@ -229,11 +231,17 @@ class Enemy {
         this.trail.push(this.pos);
         this.pos = this.pos.add(vel);
         this.trail.update(dt);
+        
+        if (this.radius < ENEMY_RADIUS) {
+            this.radius += ENEMY_SPAWN_ANIMATION_SPEED * dt;
+        } else {
+            this.radius = ENEMY_RADIUS;
+        }
     }
 
     render(camera) {
         this.trail.render(camera);
-        camera.fillCircle(this.pos, ENEMY_RADIUS, ENEMY_COLOR);
+        camera.fillCircle(this.pos, this.radius, ENEMY_COLOR);
     }
 }
 
