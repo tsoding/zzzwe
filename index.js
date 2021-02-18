@@ -66,7 +66,7 @@ class V2 {
 
     normalize() {
         const n = this.len();
-        return new V2(this.x / n, this.y / n);
+        return n === 0 ? new V2(0, 0) : new V2(this.x / n, this.y / n);
     }
 
     dist(that) {
@@ -471,10 +471,11 @@ class Game {
         let moved = false;
         for (let key of this.pressedKeys) {
             if (key in directionMap) {
-                vel = vel.add(directionMap[key].scale(PLAYER_SPEED));
+                vel = vel.add(directionMap[key]);
                 moved = true;
             }
         }
+        vel = vel.normalize().scale(PLAYER_SPEED);
         if (moved) {
             this.tutorial.playerMoved();
         }
