@@ -161,6 +161,7 @@ const ENEMY_SPAWN_ANIMATION_SPEED = ENEMY_RADIUS * 8;
 const ENEMY_COLOR = Color.hex("#9e95c7");
 const ENEMY_SPAWN_COOLDOWN = 1.0;
 const ENEMY_SPAWN_DISTANCE = 1500.0;
+const ENEMY_DESPAWN_DISTANCE = ENEMY_SPAWN_DISTANCE * 2;
 const ENEMY_DAMAGE = PLAYER_MAX_HEALTH / 5;
 const ENEMY_KILL_HEAL = PLAYER_MAX_HEALTH / 10;
 const ENEMY_KILL_SCORE = 100;
@@ -533,7 +534,9 @@ class Game {
         for (let enemy of this.enemies) {
             enemy.update(dt, this.player.pos);
         }
-        this.enemies = this.enemies.filter(enemy => !enemy.ded);
+        this.enemies = this.enemies.filter(enemy => {
+            return !enemy.ded && enemy.pos.dist(this.player.pos) < ENEMY_DESPAWN_DISTANCE;
+        });
 
         if (this.tutorial.state == TutorialState.Finished) {
             this.enemySpawnCooldown -= dt;
@@ -616,12 +619,14 @@ class Game {
     }
 }
 
+let game = null;
+
 (() => {
     const canvas = document.getElementById("game-canvas");
     const context = canvas.getContext("2d");
     let windowWasResized = true;
 
-    const game = new Game(context);
+    game = new Game(context);
 
     // https://drafts.csswg.org/mediaqueries-4/#mf-interaction
     // https://patrickhlauke.github.io/touch/pointer-hover-any-pointer-any-hover/
