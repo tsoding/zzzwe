@@ -421,7 +421,9 @@ class Player {
     }
 
     heal(value) {
-        this.health = Math.min(this.health + value, PLAYER_MAX_HEALTH);
+        if (this.health > 0.0) {
+            this.health = Math.min(this.health + value, PLAYER_MAX_HEALTH);
+        }
     }
 }
 
