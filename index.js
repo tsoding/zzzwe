@@ -304,9 +304,11 @@ const TutorialMessages = Object.freeze([
     ""
 ]);
 
+const LOCAL_STORAGE_TUTORIAL = "tutorial";
+
 class Tutorial {
     constructor() {
-        this.state = 0;
+        this.state = window.localStorage.getItem(LOCAL_STORAGE_TUTORIAL) ?? 0;
         this.popup = new TutorialPopup(TutorialMessages[this.state]);
         this.popup.fadeIn();
         this.popup.onFadedOut = () => {
@@ -327,6 +329,7 @@ class Tutorial {
         if (this.state == TutorialState.LearningMovement) {
             this.popup.fadeOut();
             this.state += 1;
+            window.localStorage.setItem(LOCAL_STORAGE_TUTORIAL, this.state);
         }
     }
 
@@ -334,6 +337,7 @@ class Tutorial {
         if (this.state == TutorialState.LearningShooting) {
             this.popup.fadeOut();
             this.state += 1;
+            window.localStorage.setItem(LOCAL_STORAGE_TUTORIAL, this.state);
         }
     }
 }
