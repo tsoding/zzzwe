@@ -2,6 +2,12 @@ function lerp(a, b, t) {
     return a + (b - a) * t;
 }
 
+function randomInRange([min, max]) {
+    return Math.random() * (max - min) + min;
+}
+
+const randomAngle = () => randomInRange([0, 2 * Math.PI]);
+
 class Color {
     constructor(r, g, b, a) {
         this.r = r;
@@ -166,10 +172,11 @@ const ENEMY_DAMAGE = PLAYER_MAX_HEALTH / 5;
 const ENEMY_KILL_HEAL = PLAYER_MAX_HEALTH / 10;
 const ENEMY_KILL_SCORE = 100;
 const ENEMY_TRAIL_RATE = 2.0;
-const PARTICLES_COUNT = 50;
-const PARTICLE_RADIUS = 10.0;
-const PARTICLE_MAG = BULLET_SPEED;
-const PARTICLE_LIFETIME = 1.0;
+const PARTICLES_COUNT = [0, 50];
+const PARTICLE_RADIUS = [10.0, 20.0];
+const PARTICLE_MAG = [0, BULLET_SPEED];
+const PARTICLE_MAX_LIFETIME = 1.0;
+const PARTICLE_LIFETIME = [0, PARTICLE_MAX_LIFETIME];
 const MESSAGE_COLOR = Color.hex("#ffffff");
 const TRAIL_COOLDOWN = 1 / 60;
 
@@ -190,7 +197,7 @@ class Particle {
     }
 
     render(camera) {
-        const a = this.lifetime / PARTICLE_LIFETIME;
+        const a = this.lifetime / PARTICLE_MAX_LIFETIME;
         camera.fillCircle(this.pos, this.radius,
                           this.color.withAlpha(a));
     }
@@ -203,14 +210,13 @@ class Particle {
 
 // TODO(#2): burst particle in a particular direction;
 function particleBurst(particles, center, color) {
-    const N = Math.random() * PARTICLES_COUNT;
+    const N = randomInRange(PARTICLES_COUNT);
     for (let i = 0; i < N; ++i) {
-        // TODO(#3): proper random floating point ranges
         particles.push(new Particle(
             center,
-            V2.polar(Math.random() * PARTICLE_MAG, Math.random() * 2 * Math.PI),
-            Math.random() * PARTICLE_LIFETIME,
-            Math.random() * PARTICLE_RADIUS + 10.0,
+            V2.polar(randomInRange(PARTICLE_MAG), randomAngle()),
+            randomInRange(PARTICLE_LIFETIME),
+            randomInRange(PARTICLE_RADIUS),
             color));
     }
 }
@@ -577,7 +583,7 @@ class Game {
 
     spawnEnemy() {
         // TODO(#12): sometimes enemies are spawned on the screen
-        let dir = Math.random() * 2 * Math.PI;
+        let dir = randomAngle();
         this.enemies.push(new Enemy(this.player.pos.add(V2.polar(ENEMY_SPAWN_DISTANCE, dir))));
     }
 
