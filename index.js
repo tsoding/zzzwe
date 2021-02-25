@@ -146,7 +146,7 @@ class Camera {
         const height = this.height();
 
         this.context.fillStyle = color.toRgba();
-        this.context.font = "30px LexendMega";
+        this.context.font = "69px LexendMega";
         this.context.textAlign = "center";
         this.context.fillText(text, width / 2, height / 2 + 10);
     }
@@ -236,7 +236,7 @@ class Enemy {
         this.ded = false;
         this.radius = 0.0;
     }
-    
+
     update(dt, followPos) {
         let vel = followPos
             .sub(this.pos)
@@ -245,7 +245,7 @@ class Enemy {
         this.trail.push(this.pos);
         this.pos = this.pos.add(vel);
         this.trail.update(dt);
-        
+
         if (this.radius < ENEMY_RADIUS) {
             this.radius += ENEMY_SPAWN_ANIMATION_SPEED * dt;
         } else {
@@ -629,7 +629,7 @@ class Game {
 }
 
 // Resolution at which the game scale will be 1 unit per pixel
-const DEFAULT_RESOLUTION = {w: 1920, h:1080};
+const DEFAULT_RESOLUTION = {w: 3840, h: 2160};
 
 let game = null;
 
