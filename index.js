@@ -84,10 +84,13 @@ class V2 {
     }
 }
 
+const IDENTITY = new DOMMatrix();
+
 class Camera {
     pos = new V2(0, 0);
     vel = new V2(0, 0);
     grayness = 0.0;
+    unitsPerPixel = 1.0;
 
     constructor(context) {
         this.context = context;
@@ -98,28 +101,31 @@ class Camera {
     }
 
     width() {
-        return this.context.canvas.width;
+        return this.context.canvas.width * this.unitsPerPixel;
     }
 
     height() {
-        return this.context.canvas.height;
+        return this.context.canvas.height * this.unitsPerPixel;
     }
 
-    toWorld(point) {
+    screenToWorld(point) {
         const width = this.context.canvas.width;
         const height = this.context.canvas.height;
-        return point.sub(new V2(width / 2, height / 2)).add(this.pos);
+        return point
+            .sub(new V2(width / 2, height / 2))
+            .scale(this.unitsPerPixel)
+            .add(this.pos);
     }
 
-    toScreen(point) {
-        const width = this.context.canvas.width;
-        const height = this.context.canvas.height;
+    worldToCamera(point) {
+        const width = this.width();
+        const height = this.height();
         return point.sub(this.pos).add(new V2(width / 2, height / 2));
     }
 
     clear() {
-        const width = this.context.canvas.width;
-        const height = this.context.canvas.height;
+        const width = this.width();
+        const height = this.height();
         this.context.clearRect(0, 0, width, height);
     }
 
@@ -128,7 +134,7 @@ class Camera {
     }
 
     fillCircle(center, radius, color) {
-        const screenCenter = this.toScreen(center);
+        const screenCenter = this.worldToCamera(center);
         this.context.fillStyle = color.grayScale(this.grayness).toRgba();
         this.context.beginPath();
         this.context.arc(screenCenter.x, screenCenter.y, radius, 0, 2 * Math.PI, false);
@@ -136,19 +142,26 @@ class Camera {
     }
 
     fillRect(x, y, w, h, color) {
-        const screenPos = this.toScreen(new V2(x, y));
+        const screenPos = this.worldToCamera(new V2(x, y));
         this.context.fillStyle = color.grayScale(this.grayness).toRgba();
         this.context.fillRect(screenPos.x, screenPos.y, w, h);
     }
 
     fillMessage(text, color) {
-        const width = this.context.canvas.width;
-        const height = this.context.canvas.height;
+        const width = this.width();
+        const height = this.height();
 
         this.context.fillStyle = color.toRgba();
-        this.context.font = "30px LexendMega";
+        this.context.font = "69px LexendMega";
         this.context.textAlign = "center";
         this.context.fillText(text, width / 2, height / 2 + 10);
+    }
+
+    setScale(scale) {
+        this.unitsPerPixel = 1 / scale;
+
+        this.context.setTransform(IDENTITY);
+        this.context.scale(scale, scale);
     }
 }
 
@@ -446,7 +459,6 @@ class Player {
     }
 }
 
-// TODO(#7): the field of view depends on the resolution
 // TODO(#8): the game stops when you unfocus the browser
 // TODO(#9): some sort of inertia during player movement
 class Game {
@@ -567,9 +579,6 @@ class Game {
     }
 
     render() {
-        const width = this.camera.width();
-        const height = this.camera.height();
-
         this.camera.clear();
         this.player.render(this.camera);
 
@@ -626,9 +635,12 @@ class Game {
 
         this.tutorial.playerShot();
         const mousePos = new V2(event.offsetX, event.offsetY);
-        this.bullets.push(this.player.shootAt(this.camera.toWorld(mousePos)));
+        this.bullets.push(this.player.shootAt(this.camera.screenToWorld(mousePos)));
     }
 }
+
+// Resolution at which the game scale will be 1 unit per pixel
+const DEFAULT_RESOLUTION = {w: 3840, h: 2160};
 
 let game = null;
 
@@ -656,6 +668,11 @@ let game = null;
         if (windowWasResized) {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            const scale = Math.min(
+                window.innerWidth / DEFAULT_RESOLUTION.w,
+                window.innerHeight / DEFAULT_RESOLUTION.h,
+            );
+            game.camera.setScale(scale);
             windowWasResized = false;
         }
 
