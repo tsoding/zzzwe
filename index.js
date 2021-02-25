@@ -2,11 +2,11 @@ function lerp(a, b, t) {
     return a + (b - a) * t;
 }
 
-function randomInRange([min, max]) {
+function randomBetween(min = 0, max = 1) {
     return Math.random() * (max - min) + min;
 }
 
-const randomAngle = () => randomInRange([0, 2 * Math.PI]);
+const randomAngle = () => randomBetween(0, 2 * Math.PI);
 
 class Color {
     constructor(r, g, b, a) {
@@ -172,11 +172,11 @@ const ENEMY_DAMAGE = PLAYER_MAX_HEALTH / 5;
 const ENEMY_KILL_HEAL = PLAYER_MAX_HEALTH / 10;
 const ENEMY_KILL_SCORE = 100;
 const ENEMY_TRAIL_RATE = 2.0;
-const PARTICLES_COUNT = [0, 50];
-const PARTICLE_RADIUS = [10.0, 20.0];
-const PARTICLE_MAG = [0, BULLET_SPEED];
+const PARTICLES_COUNT_RANGE = [0, 50];
+const PARTICLE_RADIUS_RANGE = [10.0, 20.0];
+const PARTICLE_MAG_RANGE = [0, BULLET_SPEED];
 const PARTICLE_MAX_LIFETIME = 1.0;
-const PARTICLE_LIFETIME = [0, PARTICLE_MAX_LIFETIME];
+const PARTICLE_LIFETIME_RANGE = [0, PARTICLE_MAX_LIFETIME];
 const MESSAGE_COLOR = Color.hex("#ffffff");
 const TRAIL_COOLDOWN = 1 / 60;
 
@@ -210,13 +210,13 @@ class Particle {
 
 // TODO(#2): burst particle in a particular direction;
 function particleBurst(particles, center, color) {
-    const N = randomInRange(PARTICLES_COUNT);
+    const N = randomBetween(...PARTICLES_COUNT_RANGE);
     for (let i = 0; i < N; ++i) {
         particles.push(new Particle(
             center,
-            V2.polar(randomInRange(PARTICLE_MAG), randomAngle()),
-            randomInRange(PARTICLE_LIFETIME),
-            randomInRange(PARTICLE_RADIUS),
+            V2.polar(randomBetween(...PARTICLE_MAG_RANGE), randomAngle()),
+            randomBetween(...PARTICLE_LIFETIME_RANGE),
+            randomBetween(...PARTICLE_RADIUS_RANGE),
             color));
     }
 }
@@ -229,7 +229,7 @@ class Enemy {
         this.ded = false;
         this.radius = 0.0;
     }
-    
+
     update(dt, followPos) {
         let vel = followPos
             .sub(this.pos)
@@ -238,7 +238,7 @@ class Enemy {
         this.trail.push(this.pos);
         this.pos = this.pos.add(vel);
         this.trail.update(dt);
-        
+
         if (this.radius < ENEMY_RADIUS) {
             this.radius += ENEMY_SPAWN_ANIMATION_SPEED * dt;
         } else {
