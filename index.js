@@ -179,6 +179,7 @@ const ENEMY_RADIUS = PLAYER_RADIUS;
 const ENEMY_SPAWN_ANIMATION_SPEED = ENEMY_RADIUS * 8;
 const ENEMY_COLOR = Color.hex("#9e95c7");
 const ENEMY_SPAWN_COOLDOWN = 1.0;
+const ENEMY_SPAWN_GROWTH = 1.01;
 const ENEMY_SPAWN_DISTANCE = 1500.0;
 const ENEMY_DESPAWN_DISTANCE = ENEMY_SPAWN_DISTANCE * 2;
 const ENEMY_DAMAGE = PLAYER_MAX_HEALTH / 5;
@@ -566,8 +567,7 @@ class Game {
             if (this.enemySpawnCooldown <= 0.0) {
                 this.spawnEnemy();
                 this.enemySpawnCooldown = this.enemySpawnRate;
-                // TODO(#11): spawning rate ramps up too quickly
-                this.enemySpawnRate = Math.max(0.01, this.enemySpawnRate - 0.01);
+                this.enemySpawnRate /= ENEMY_SPAWN_GROWTH;
             }
         }
     }
