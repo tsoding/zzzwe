@@ -444,7 +444,6 @@ class Player {
 // TODO(#8): the game stops when you unfocus the browser
 // TODO(#9): some sort of inertia during player movement
 class Game {
-    // TODO(#10): the player should be initially positioned at the center of the screen
     restart() {
         // TODO(#37): a player respawn animation similar to the enemy's one
         this.player = new Player(new V2(0, 0));
