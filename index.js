@@ -582,7 +582,6 @@ class Game {
     }
 
     spawnEnemy() {
-        // TODO(#12): sometimes enemies are spawned on the screen
         let dir = Math.random() * 2 * Math.PI;
         this.enemies.push(new Enemy(this.player.pos.add(V2.polar(ENEMY_SPAWN_DISTANCE, dir))));
     }
