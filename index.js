@@ -446,7 +446,7 @@ class Player {
 class Game {
     // TODO(#10): the player should be initially positioned at the center of the screen
     restart() {
-        // TODO: a player respawn animation similar to the enemy's one
+        // TODO(#37): a player respawn animation similar to the enemy's one
         this.player = new Player(new V2(0, 0));
         this.score = 0;
         this.mousePos = new V2(0, 0);
