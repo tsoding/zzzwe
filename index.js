@@ -223,7 +223,7 @@ class Enemy {
         this.ded = false;
         this.radius = 0.0;
     }
-    
+
     update(dt, followPos) {
         let vel = followPos
             .sub(this.pos)
@@ -232,7 +232,7 @@ class Enemy {
         this.trail.push(this.pos);
         this.pos = this.pos.add(vel);
         this.trail.update(dt);
-        
+
         if (this.radius < ENEMY_RADIUS) {
             this.radius += ENEMY_SPAWN_ANIMATION_SPEED * dt;
         } else {
@@ -445,23 +445,26 @@ class Player {
 // TODO(#9): some sort of inertia during player movement
 class Game {
     // TODO(#10): the player should be initially positioned at the center of the screen
-    initialState = () => ({
-        player: new Player(new V2(0, 0)),
-        score: 0,
-        mousePos: new V2(0, 0),
-        pressedKeys: new Set(),
-        tutorial: new Tutorial(),
-        bullets: [],
-        enemies: [],
-        particles: [],
-        enemySpawnRate: ENEMY_SPAWN_COOLDOWN,
-        enemySpawnCooldown: ENEMY_SPAWN_COOLDOWN,
-        paused: false,
-    })
+    restart() {
+        // TODO: a player respawn animation similar to the enemy's one
+        this.player = new Player(new V2(0, 0));
+        this.score = 0;
+        this.mousePos = new V2(0, 0);
+        this.pressedKeys = new Set();
+        this.tutorial = new Tutorial();
+        this.bullets = [];
+        this.enemies = [];
+        this.particles = [];
+        this.enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
+        this.enemySpawnCooldown = ENEMY_SPAWN_COOLDOWN;
+        this.paused = false;
+        this.camera.pos = new V2(0.0, 0.0);
+        this.camera.vel = new V2(0.0, 0.0);
+    }
 
     constructor(context) {
-        Object.assign(this, this.initialState());
         this.camera = new Camera(context);
+        this.restart();
     }
 
     update(dt) {
@@ -582,10 +585,6 @@ class Game {
         // TODO(#12): sometimes enemies are spawned on the screen
         let dir = Math.random() * 2 * Math.PI;
         this.enemies.push(new Enemy(this.player.pos.add(V2.polar(ENEMY_SPAWN_DISTANCE, dir))));
-    }
-
-    restart() {
-        Object.assign(this, this.initialState());
     }
 
     togglePause() {
