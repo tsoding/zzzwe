@@ -223,7 +223,7 @@ class Enemy {
         this.ded = false;
         this.radius = 0.0;
     }
-    
+
     update(dt, followPos) {
         let vel = followPos
             .sub(this.pos)
@@ -232,7 +232,7 @@ class Enemy {
         this.trail.push(this.pos);
         this.pos = this.pos.add(vel);
         this.trail.update(dt);
-        
+
         if (this.radius < ENEMY_RADIUS) {
             this.radius += ENEMY_SPAWN_ANIMATION_SPEED * dt;
         } else {
@@ -445,20 +445,26 @@ class Player {
 // TODO(#9): some sort of inertia during player movement
 class Game {
     // TODO(#10): the player should be initially positioned at the center of the screen
-    player = new Player(new V2(0, 0));
-    score = 0;
-    mousePos = new V2(0, 0);
-    pressedKeys = new Set();
-    tutorial = new Tutorial();
-    bullets = [];
-    enemies = [];
-    particles = [];
-    enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
-    enemySpawnCooldown = this.enemySpawnRate;
-    paused = false;
+    restart() {
+        // TODO(#37): a player respawn animation similar to the enemy's one
+        this.player = new Player(new V2(0, 0));
+        this.score = 0;
+        this.mousePos = new V2(0, 0);
+        this.pressedKeys = new Set();
+        this.tutorial = new Tutorial();
+        this.bullets = [];
+        this.enemies = [];
+        this.particles = [];
+        this.enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
+        this.enemySpawnCooldown = ENEMY_SPAWN_COOLDOWN;
+        this.paused = false;
+        this.camera.pos = new V2(0.0, 0.0);
+        this.camera.vel = new V2(0.0, 0.0);
+    }
 
     constructor(context) {
         this.camera = new Camera(context);
+        this.restart();
     }
 
     update(dt) {
@@ -569,7 +575,7 @@ class Game {
         if (this.paused) {
             this.camera.fillMessage("PAUSED (SPACE to resume)", MESSAGE_COLOR);
         } else if(this.player.health <= 0.0) {
-            this.camera.fillMessage(`YOUR SCORE: ${this.score} (F5 to restart)`, MESSAGE_COLOR);
+            this.camera.fillMessage(`YOUR SCORE: ${this.score} (SPACE to restart)`, MESSAGE_COLOR);
         } else {
             this.tutorial.render(this.camera);
         }
@@ -586,7 +592,8 @@ class Game {
     }
 
     keyDown(event) {
-        if (this.player.health <= 0.0) {
+        if (this.player.health <= 0.0 && event.code == 'Space') {
+            this.restart();
             return;
         }
 
