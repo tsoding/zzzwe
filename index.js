@@ -481,8 +481,8 @@ class Player {
 
 class Background {
     cellPoints = [];
-    cellWidthApprox = BACKGROUND_CELL_RADIUS * 1.5;
-    cellHeightApprox = Math.sqrt(3) * BACKGROUND_CELL_RADIUS;
+    cellWidth = 1.5 * BACKGROUND_CELL_RADIUS;
+    cellHeight = Math.sqrt(3) * BACKGROUND_CELL_RADIUS;
 
     constructor() {
         // We need only half hexagon segments since each hexagon is bounded with other hexagons and their segments overlap
@@ -494,16 +494,16 @@ class Background {
 
     render(camera) {
         let bounds = camera.getScreenWorldBounds()
-        let gridBoundsXMin = Math.floor(bounds[0].x / this.cellWidthApprox)
-        let gridBoundsXMax = Math.floor(bounds[1].x / this.cellWidthApprox)
-        let gridBoundsYMin = Math.floor(bounds[0].y / this.cellHeightApprox)
-        let gridBoundsYMax = Math.floor(bounds[1].y / this.cellHeightApprox)
+        let gridBoundsXMin = Math.floor(bounds[0].x / this.cellWidth)
+        let gridBoundsXMax = Math.floor(bounds[1].x / this.cellWidth)
+        let gridBoundsYMin = Math.floor(bounds[0].y / this.cellHeight)
+        let gridBoundsYMax = Math.floor(bounds[1].y / this.cellHeight)
 
         for (let cellX = gridBoundsXMin; cellX <= gridBoundsXMax + 1; ++cellX)
             for (let cellY = gridBoundsYMin; cellY <= gridBoundsYMax; ++cellY) {
                 let offset = new V2(
-                    cellX * BACKGROUND_CELL_RADIUS * 1.5,
-                    Math.sqrt(3) * BACKGROUND_CELL_RADIUS * (cellY + (cellX % 2 == 0 ? 0.5 : 0))
+                    cellX * this.cellWidth,
+                    (cellY + (cellX % 2 == 0 ? 0.5 : 0)) * this.cellHeight
                 );
                 let points = this.cellPoints.map(p => p.add(offset))
                 camera.drawLine(points, BACKGROUND_COLOR)
