@@ -108,6 +108,12 @@ class Camera {
         return this.context.canvas.height * this.unitsPerPixel;
     }
 
+    getScreenWorldBounds() {
+        let topLeft = this.screenToWorld(new V2(0, 0))
+        let bottomRight = this.screenToWorld(new V2(this.context.canvas.width, this.context.canvas.height))
+        return [topLeft, bottomRight]
+    }
+
     screenToWorld(point) {
         const width = this.context.canvas.width;
         const height = this.context.canvas.height;
@@ -157,6 +163,17 @@ class Camera {
         this.context.fillText(text, width / 2, height / 2 + 10);
     }
 
+    drawLine(points, color) {
+        this.context.beginPath();
+        for (let i = 0; i < points.length; ++i) {
+            let screenPoint = this.worldToCamera(points[i])
+            if (i == 0) this.context.moveTo(screenPoint.x, screenPoint.y);
+            else this.context.lineTo(screenPoint.x, screenPoint.y);
+        }
+        this.context.strokeStyle = color.toRgba();
+        this.context.stroke();
+    }
+
     setScale(scale) {
         this.unitsPerPixel = 1 / scale;
 
@@ -193,6 +210,8 @@ const PARTICLE_MAX_LIFETIME = 1.0;
 const PARTICLE_LIFETIME_RANGE = [0, PARTICLE_MAX_LIFETIME];
 const MESSAGE_COLOR = Color.hex("#ffffff");
 const TRAIL_COOLDOWN = 1 / 60;
+const BACKGROUND_CELL_RADIUS = 120;
+const BACKGROUND_COLOR = Color.hex("#ffffff").withAlpha(0.5)
 
 const directionMap = {
     'KeyS': new V2(0, 1.0),
@@ -460,6 +479,38 @@ class Player {
     }
 }
 
+class Background {
+    cellPoints = [];
+    cellWidth = 1.5 * BACKGROUND_CELL_RADIUS;
+    cellHeight = Math.sqrt(3) * BACKGROUND_CELL_RADIUS;
+
+    constructor() {
+        // We need only half hexagon segments since each hexagon is bounded with other hexagons and their segments overlap
+        for (let i = 0; i < 4; ++i) {
+            let angle = 2 * Math.PI * i / 6;
+            this.cellPoints.push(new V2(Math.cos(angle), Math.sin(angle)).scale(BACKGROUND_CELL_RADIUS));
+        }
+    }
+
+    render(camera) {
+        let bounds = camera.getScreenWorldBounds()
+        let gridBoundsXMin = Math.floor(bounds[0].x / this.cellWidth)
+        let gridBoundsXMax = Math.floor(bounds[1].x / this.cellWidth)
+        let gridBoundsYMin = Math.floor(bounds[0].y / this.cellHeight)
+        let gridBoundsYMax = Math.floor(bounds[1].y / this.cellHeight)
+
+        for (let cellX = gridBoundsXMin; cellX <= gridBoundsXMax + 1; ++cellX)
+            for (let cellY = gridBoundsYMin; cellY <= gridBoundsYMax; ++cellY) {
+                let offset = new V2(
+                    cellX * this.cellWidth,
+                    (cellY + (cellX % 2 == 0 ? 0.5 : 0)) * this.cellHeight
+                );
+                let points = this.cellPoints.map(p => p.add(offset))
+                camera.drawLine(points, BACKGROUND_COLOR)
+            }
+    }
+}
+
 // TODO(#8): the game stops when you unfocus the browser
 // TODO(#9): some sort of inertia during player movement
 class Game {
@@ -478,6 +529,7 @@ class Game {
         this.paused = false;
         this.camera.pos = new V2(0.0, 0.0);
         this.camera.vel = new V2(0.0, 0.0);
+        this.background = new Background()
     }
 
     constructor(context) {
@@ -580,6 +632,7 @@ class Game {
 
     render() {
         this.camera.clear();
+        this.background.render(this.camera);
         this.player.render(this.camera);
 
         this.renderEntities(this.bullets);
