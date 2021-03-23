@@ -2,6 +2,12 @@ function lerp(a, b, t) {
     return a + (b - a) * t;
 }
 
+function randomBetween(min = 0, max = 1) {
+    return Math.random() * (max - min) + min;
+}
+
+const randomAngle = () => randomBetween(0, 2 * Math.PI);
+
 class Color {
     constructor(r, g, b, a) {
         this.r = r;
@@ -66,7 +72,7 @@ class V2 {
 
     normalize() {
         const n = this.len();
-        return new V2(this.x / n, this.y / n);
+        return n === 0 ? new V2(0, 0) : new V2(this.x / n, this.y / n);
     }
 
     dist(that) {
@@ -78,10 +84,13 @@ class V2 {
     }
 }
 
+const IDENTITY = new DOMMatrix();
+
 class Camera {
     pos = new V2(0, 0);
     vel = new V2(0, 0);
     grayness = 0.0;
+    unitsPerPixel = 1.0;
 
     constructor(context) {
         this.context = context;
@@ -92,28 +101,31 @@ class Camera {
     }
 
     width() {
-        return this.context.canvas.width;
+        return this.context.canvas.width * this.unitsPerPixel;
     }
 
     height() {
-        return this.context.canvas.height;
+        return this.context.canvas.height * this.unitsPerPixel;
     }
 
-    toWorld(point) {
+    screenToWorld(point) {
         const width = this.context.canvas.width;
         const height = this.context.canvas.height;
-        return point.sub(new V2(width / 2, height / 2)).add(this.pos);
+        return point
+            .sub(new V2(width / 2, height / 2))
+            .scale(this.unitsPerPixel)
+            .add(this.pos);
     }
 
-    toScreen(point) {
-        const width = this.context.canvas.width;
-        const height = this.context.canvas.height;
+    worldToCamera(point) {
+        const width = this.width();
+        const height = this.height();
         return point.sub(this.pos).add(new V2(width / 2, height / 2));
     }
 
     clear() {
-        const width = this.context.canvas.width;
-        const height = this.context.canvas.height;
+        const width = this.width();
+        const height = this.height();
         this.context.clearRect(0, 0, width, height);
     }
 
@@ -122,7 +134,7 @@ class Camera {
     }
 
     fillCircle(center, radius, color) {
-        const screenCenter = this.toScreen(center);
+        const screenCenter = this.worldToCamera(center);
         this.context.fillStyle = color.grayScale(this.grayness).toRgba();
         this.context.beginPath();
         this.context.arc(screenCenter.x, screenCenter.y, radius, 0, 2 * Math.PI, false);
@@ -130,17 +142,17 @@ class Camera {
     }
 
     fillRect(x, y, w, h, color) {
-        const screenPos = this.toScreen(new V2(x, y));
+        const screenPos = this.worldToCamera(new V2(x, y));
         this.context.fillStyle = color.grayScale(this.grayness).toRgba();
         this.context.fillRect(screenPos.x, screenPos.y, w, h);
     }
 
     fillMessage(text, color) {
-        const width = this.context.canvas.width;
-        const height = this.context.canvas.height;
+        const width = this.width();
+        const height = this.height();
 
-        const FONT_SIZE = 30;
-        const LINE_PADDING = 30;
+        const FONT_SIZE = 69;
+        const LINE_PADDING = 69;
         this.context.fillStyle = color.toRgba();
         this.context.font = `${FONT_SIZE}px LexendMega`;
         this.context.textAlign = "center";
@@ -150,6 +162,13 @@ class Camera {
         for (let i = 0; i < lines.length; ++i) {
             this.context.fillText(lines[i], width / 2, (height - MESSAGE_HEIGTH) / 2 + (FONT_SIZE + LINE_PADDING) * i);
         }
+    }
+
+    setScale(scale) {
+        this.unitsPerPixel = 1 / scale;
+
+        this.context.setTransform(IDENTITY);
+        this.context.scale(scale, scale);
     }
 }
 
@@ -164,17 +183,21 @@ const BULLET_SPEED = 2000;
 const BULLET_LIFETIME = 5.0;
 const ENEMY_SPEED = PLAYER_SPEED / 3;
 const ENEMY_RADIUS = PLAYER_RADIUS;
+const ENEMY_SPAWN_ANIMATION_SPEED = ENEMY_RADIUS * 8;
 const ENEMY_COLOR = Color.hex("#9e95c7");
 const ENEMY_SPAWN_COOLDOWN = 1.0;
+const ENEMY_SPAWN_GROWTH = 1.01;
 const ENEMY_SPAWN_DISTANCE = 1500.0;
+const ENEMY_DESPAWN_DISTANCE = ENEMY_SPAWN_DISTANCE * 2;
 const ENEMY_DAMAGE = PLAYER_MAX_HEALTH / 5;
 const ENEMY_KILL_HEAL = PLAYER_MAX_HEALTH / 10;
 const ENEMY_KILL_SCORE = 100;
 const ENEMY_TRAIL_RATE = 2.0;
-const PARTICLES_COUNT = 50;
-const PARTICLE_RADIUS = 10.0;
-const PARTICLE_MAG = BULLET_SPEED;
-const PARTICLE_LIFETIME = 1.0;
+const PARTICLES_COUNT_RANGE = [0, 50];
+const PARTICLE_RADIUS_RANGE = [10.0, 20.0];
+const PARTICLE_MAG_RANGE = [0, BULLET_SPEED];
+const PARTICLE_MAX_LIFETIME = 1.0;
+const PARTICLE_LIFETIME_RANGE = [0, PARTICLE_MAX_LIFETIME];
 const MESSAGE_COLOR = Color.hex("#ffffff");
 const TRAIL_COOLDOWN = 1 / 60;
 
@@ -195,7 +218,7 @@ class Particle {
     }
 
     render(camera) {
-        const a = this.lifetime / PARTICLE_LIFETIME;
+        const a = this.lifetime / PARTICLE_MAX_LIFETIME;
         camera.fillCircle(this.pos, this.radius,
                           this.color.withAlpha(a));
     }
@@ -208,14 +231,13 @@ class Particle {
 
 // TODO(#2): burst particle in a particular direction;
 function particleBurst(particles, center, color) {
-    const N = Math.random() * PARTICLES_COUNT;
+    const N = randomBetween(...PARTICLES_COUNT_RANGE);
     for (let i = 0; i < N; ++i) {
-        // TODO(#3): proper random floating point ranges
         particles.push(new Particle(
             center,
-            V2.polar(Math.random() * PARTICLE_MAG, Math.random() * 2 * Math.PI),
-            Math.random() * PARTICLE_LIFETIME,
-            Math.random() * PARTICLE_RADIUS + 10.0,
+            V2.polar(randomBetween(...PARTICLE_MAG_RANGE), randomAngle()),
+            randomBetween(...PARTICLE_LIFETIME_RANGE),
+            randomBetween(...PARTICLE_RADIUS_RANGE),
             color));
     }
 }
@@ -226,6 +248,7 @@ class Enemy {
     constructor(pos) {
         this.pos = pos;
         this.ded = false;
+        this.radius = 0.0;
     }
 
     update(dt, followPos) {
@@ -236,11 +259,17 @@ class Enemy {
         this.trail.push(this.pos);
         this.pos = this.pos.add(vel);
         this.trail.update(dt);
+
+        if (this.radius < ENEMY_RADIUS) {
+            this.radius += ENEMY_SPAWN_ANIMATION_SPEED * dt;
+        } else {
+            this.radius = ENEMY_RADIUS;
+        }
     }
 
     render(camera) {
         this.trail.render(camera);
-        camera.fillCircle(this.pos, ENEMY_RADIUS, ENEMY_COLOR);
+        camera.fillCircle(this.pos, this.radius, ENEMY_COLOR);
     }
 }
 
@@ -311,9 +340,11 @@ const TutorialMessages = Object.freeze([
     ""
 ]);
 
+const LOCAL_STORAGE_TUTORIAL = "tutorial";
+
 class Tutorial {
     constructor() {
-        this.state = 0;
+        this.state = window.localStorage.getItem(LOCAL_STORAGE_TUTORIAL) ?? 0;
         this.popup = new TutorialPopup(TutorialMessages[this.state]);
         this.popup.fadeIn();
         this.popup.onFadedOut = () => {
@@ -334,6 +365,7 @@ class Tutorial {
         if (this.state == TutorialState.LearningMovement) {
             this.popup.fadeOut();
             this.state += 1;
+            window.localStorage.setItem(LOCAL_STORAGE_TUTORIAL, this.state);
         }
     }
 
@@ -341,6 +373,7 @@ class Tutorial {
         if (this.state == TutorialState.LearningShooting) {
             this.popup.fadeOut();
             this.state += 1;
+            window.localStorage.setItem(LOCAL_STORAGE_TUTORIAL, this.state);
         }
     }
 }
@@ -431,29 +464,35 @@ class Player {
     }
 
     heal(value) {
-        this.health = Math.min(this.health + value, PLAYER_MAX_HEALTH);
+        if (this.health > 0.0) {
+            this.health = Math.min(this.health + value, PLAYER_MAX_HEALTH);
+        }
     }
 }
 
-// TODO(#7): the field of view depends on the resolution
 // TODO(#8): the game stops when you unfocus the browser
 // TODO(#9): some sort of inertia during player movement
 class Game {
-    // TODO(#10): the player should be initially positioned at the center of the screen
-    player = new Player(new V2(0, 0));
-    score = 0;
-    mousePos = new V2(0, 0);
-    pressedKeys = new Set();
-    tutorial = new Tutorial();
-    bullets = [];
-    enemies = [];
-    particles = [];
-    enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
-    enemySpawnCooldown = this.enemySpawnRate;
-    paused = false;
+    restart() {
+        // TODO(#37): a player respawn animation similar to the enemy's one
+        this.player = new Player(new V2(0, 0));
+        this.score = 0;
+        this.mousePos = new V2(0, 0);
+        this.pressedKeys = new Set();
+        this.tutorial = new Tutorial();
+        this.bullets = [];
+        this.enemies = [];
+        this.particles = [];
+        this.enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
+        this.enemySpawnCooldown = ENEMY_SPAWN_COOLDOWN;
+        this.paused = false;
+        this.camera.pos = new V2(0.0, 0.0);
+        this.camera.vel = new V2(0.0, 0.0);
+    }
 
     constructor(context) {
         this.camera = new Camera(context);
+        this.restart();
     }
 
     update(dt) {
@@ -475,10 +514,11 @@ class Game {
         let moved = false;
         for (let key of this.pressedKeys) {
             if (key in directionMap) {
-                vel = vel.add(directionMap[key].scale(PLAYER_SPEED));
+                vel = vel.add(directionMap[key]);
                 moved = true;
             }
         }
+        vel = vel.normalize().scale(PLAYER_SPEED);
         if (moved) {
             this.tutorial.playerMoved();
         }
@@ -529,15 +569,16 @@ class Game {
         for (let enemy of this.enemies) {
             enemy.update(dt, this.player.pos);
         }
-        this.enemies = this.enemies.filter(enemy => !enemy.ded);
+        this.enemies = this.enemies.filter(enemy => {
+            return !enemy.ded && enemy.pos.dist(this.player.pos) < ENEMY_DESPAWN_DISTANCE;
+        });
 
         if (this.tutorial.state == TutorialState.Finished) {
             this.enemySpawnCooldown -= dt;
             if (this.enemySpawnCooldown <= 0.0) {
                 this.spawnEnemy();
                 this.enemySpawnCooldown = this.enemySpawnRate;
-                // TODO(#11): spawning rate ramps up too quickly
-                this.enemySpawnRate = Math.max(0.01, this.enemySpawnRate - 0.01);
+                this.enemySpawnRate /= ENEMY_SPAWN_GROWTH;
             }
         }
     }
@@ -549,9 +590,6 @@ class Game {
     }
 
     render() {
-        const width = this.camera.width();
-        const height = this.camera.height();
-
         this.camera.clear();
         this.player.render(this.camera);
 
@@ -563,15 +601,14 @@ class Game {
             this.camera.fillMessage("PAUSED (SPACE to resume)", MESSAGE_COLOR);
         } else if(this.player.health <= 0.0) {
             const accuracy = Math.ceil(100 * this.player.accuracy / Math.max(this.player.shootCount, 1.0));
-            this.camera.fillMessage(`YOUR SCORE: ${this.score}\nACCURACY: ${accuracy}%\n(F5 to restart)`, MESSAGE_COLOR);
+            this.camera.fillMessage(`YOUR SCORE: ${this.score}\nACCURACY: ${accuracy}%\n(SPACE to restart)`, MESSAGE_COLOR);
         } else {
             this.tutorial.render(this.camera);
         }
     }
 
     spawnEnemy() {
-        // TODO(#12): sometimes enemies are spawned on the screen
-        let dir = Math.random() * 2 * Math.PI;
+        let dir = randomAngle();
         this.enemies.push(new Enemy(this.player.pos.add(V2.polar(ENEMY_SPAWN_DISTANCE, dir))));
     }
 
@@ -580,7 +617,8 @@ class Game {
     }
 
     keyDown(event) {
-        if (this.player.health <= 0.0) {
+        if (this.player.health <= 0.0 && event.code == 'Space') {
+            this.restart();
             return;
         }
 
@@ -609,16 +647,27 @@ class Game {
 
         this.tutorial.playerShot();
         const mousePos = new V2(event.offsetX, event.offsetY);
-        this.bullets.push(this.player.shootAt(this.camera.toWorld(mousePos)));
+        this.bullets.push(this.player.shootAt(this.camera.screenToWorld(mousePos)));
     }
 }
 
+// Resolution at which the game scale will be 1 unit per pixel
+const DEFAULT_RESOLUTION = {w: 3840, h: 2160};
+
+let game = null;
+
 (() => {
-    const canvas = document.getElementById("game");
+    const canvas = document.getElementById("game-canvas");
     const context = canvas.getContext("2d");
     let windowWasResized = true;
 
-    const game = new Game(context);
+    game = new Game(context);
+
+    // https://drafts.csswg.org/mediaqueries-4/#mf-interaction
+    // https://patrickhlauke.github.io/touch/pointer-hover-any-pointer-any-hover/
+    if (window.matchMedia("(pointer: coarse)").matches) {
+        game.tutorial.playerMoved();
+    }
 
     let start;
     function step(timestamp) {
@@ -631,6 +680,11 @@ class Game {
         if (windowWasResized) {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            const scale = Math.min(
+                window.innerWidth / DEFAULT_RESOLUTION.w,
+                window.innerHeight / DEFAULT_RESOLUTION.h,
+            );
+            game.camera.setScale(scale);
             windowWasResized = false;
         }
 
@@ -642,6 +696,8 @@ class Game {
 
     window.requestAnimationFrame(step);
 
+    // TODO(#30): game is not playable on mobile without external keyboard
+
     document.addEventListener('keydown', event => {
         game.keyDown(event);
     });
@@ -650,11 +706,11 @@ class Game {
         game.keyUp(event);
     });
 
-    document.addEventListener('mousemove', event => {
+    document.addEventListener('pointermove', event => {
         game.mouseMove(event);
     });
 
-    document.addEventListener('mousedown', event => {
+    document.addEventListener('pointerdown', event => {
         game.mouseDown(event);
     });
 
