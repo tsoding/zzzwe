@@ -429,7 +429,7 @@ class Player {
     constructor(pos) {
         this.pos = pos;
         this.accuracy = 0;
-        this.shootCount = -1; // Don't count tutorial shoot
+        this.shootCount = window.localStorage.getItem(LOCAL_STORAGE_TUTORIAL) == TutorialState.Finished ? 0 : -1;
     }
 
     render(camera) {
