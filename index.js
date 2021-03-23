@@ -139,10 +139,17 @@ class Camera {
         const width = this.context.canvas.width;
         const height = this.context.canvas.height;
 
+        const FONT_SIZE = 30;
+        const LINE_PADDING = 30;
         this.context.fillStyle = color.toRgba();
-        this.context.font = "30px LexendMega";
+        this.context.font = `${FONT_SIZE}px LexendMega`;
         this.context.textAlign = "center";
-        this.context.fillText(text, width / 2, height / 2 + 10);
+        this.context.textBaseline = "middle";
+        const lines = text.split("\n");
+        const MESSAGE_HEIGTH = (FONT_SIZE + LINE_PADDING) * (lines.length - 1);
+        for (let i = 0; i < lines.length; ++i) {
+            this.context.fillText(lines[i], width / 2, (height - MESSAGE_HEIGTH) / 2 + (FONT_SIZE + LINE_PADDING) * i);
+        }
     }
 }
 
@@ -556,7 +563,7 @@ class Game {
             this.camera.fillMessage("PAUSED (SPACE to resume)", MESSAGE_COLOR);
         } else if(this.player.health <= 0.0) {
             const accuracy = Math.ceil(100 * this.player.accuracy / Math.max(this.player.shootCount, 1.0));
-            this.camera.fillMessage(`YOUR SCORE: ${this.score}.  ACCURACY ${accuracy}%.  (F5 to restart)`, MESSAGE_COLOR);
+            this.camera.fillMessage(`YOUR SCORE: ${this.score}\nACCURACY: ${accuracy}%\n(F5 to restart)`, MESSAGE_COLOR);
         } else {
             this.tutorial.render(this.camera);
         }
