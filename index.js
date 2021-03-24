@@ -758,4 +758,14 @@ let game = null;
     window.addEventListener('resize', event => {
         windowWasResized = true;
     });
+
+    window.addEventListener('blur', event => {
+        if (game.player.health > 0.0) {
+            game.paused = true;
+        }
+    });
+
+    window.addEventListener('focus', event => {
+        start = performance.now() - 1000 / 60;
+    });
 })();
