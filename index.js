@@ -157,10 +157,17 @@ class Camera {
         const width = this.width();
         const height = this.height();
 
+        const FONT_SIZE = 69;
+        const LINE_PADDING = 69;
         this.context.fillStyle = color.toRgba();
-        this.context.font = "69px LexendMega";
+        this.context.font = `${FONT_SIZE}px LexendMega`;
         this.context.textAlign = "center";
-        this.context.fillText(text, width / 2, height / 2 + 10);
+        this.context.textBaseline = "middle";
+        const lines = text.split("\n");
+        const MESSAGE_HEIGTH = (FONT_SIZE + LINE_PADDING) * (lines.length - 1);
+        for (let i = 0; i < lines.length; ++i) {
+            this.context.fillText(lines[i], width / 2, (height - MESSAGE_HEIGTH) / 2 + (FONT_SIZE + LINE_PADDING) * i);
+        }
     }
 
     drawLine(points, color) {
@@ -440,6 +447,8 @@ class Player {
 
     constructor(pos) {
         this.pos = pos;
+        this.accuracy = 0;
+        this.shootCount = window.localStorage.getItem(LOCAL_STORAGE_TUTORIAL) == TutorialState.Finished ? 0 : -1;
     }
 
     render(camera) {
@@ -457,6 +466,7 @@ class Player {
     }
 
     shootAt(target) {
+        this.shootCount += 1;
         const bulletDir = target
               .sub(this.pos)
               .normalize();
@@ -575,6 +585,7 @@ class Game {
                     if (enemy.pos.dist(bullet.pos) <= BULLET_RADIUS + ENEMY_RADIUS) {
                         this.score += ENEMY_KILL_SCORE;
                         this.player.heal(ENEMY_KILL_HEAL);
+                        this.player.accuracy += 1;
                         bullet.lifetime = 0.0;
                         enemy.ded = true;
                         particleBurst(this.particles, enemy.pos, ENEMY_COLOR);
@@ -642,7 +653,8 @@ class Game {
         if (this.paused) {
             this.camera.fillMessage("PAUSED (SPACE to resume)", MESSAGE_COLOR);
         } else if(this.player.health <= 0.0) {
-            this.camera.fillMessage(`YOUR SCORE: ${this.score} (SPACE to restart)`, MESSAGE_COLOR);
+            const accuracy = Math.ceil(100 * this.player.accuracy / Math.max(this.player.shootCount, 1.0));
+            this.camera.fillMessage(`YOUR SCORE: ${this.score}\nACCURACY: ${accuracy}%\n(SPACE to restart)`, MESSAGE_COLOR);
         } else {
             this.tutorial.render(this.camera);
         }
