@@ -293,6 +293,8 @@ class CircleRenderer {
 };
 
 window.onload = () => {
+    console.log('WebGL Buffered Tech Demo');
+
     try {
         const canvas = document.querySelector('#idCanvas');
         const gl = canvas.getContext("webgl");
