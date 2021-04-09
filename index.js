@@ -109,9 +109,9 @@ class Camera {
     }
 
     getScreenWorldBounds() {
-        let topLeft = this.screenToWorld(new V2(0, 0))
-        let bottomRight = this.screenToWorld(new V2(this.context.canvas.width, this.context.canvas.height))
-        return [topLeft, bottomRight]
+        let topLeft = this.screenToWorld(new V2(0, 0));
+        let bottomRight = this.screenToWorld(new V2(this.context.canvas.width, this.context.canvas.height));
+        return [topLeft, bottomRight];
     }
 
     screenToWorld(point) {
@@ -173,7 +173,7 @@ class Camera {
     drawLine(points, color) {
         this.context.beginPath();
         for (let i = 0; i < points.length; ++i) {
-            let screenPoint = this.worldToCamera(points[i])
+            let screenPoint = this.worldToCamera(points[i]);
             if (i == 0) this.context.moveTo(screenPoint.x, screenPoint.y);
             else this.context.lineTo(screenPoint.x, screenPoint.y);
         }
@@ -218,7 +218,7 @@ const PARTICLE_LIFETIME_RANGE = [0, PARTICLE_MAX_LIFETIME];
 const MESSAGE_COLOR = Color.hex("#ffffff");
 const TRAIL_COOLDOWN = 1 / 60;
 const BACKGROUND_CELL_RADIUS = 120;
-const BACKGROUND_COLOR = Color.hex("#ffffff").withAlpha(0.5)
+const BACKGROUND_COLOR = Color.hex("#ffffff").withAlpha(0.5);
 
 const directionMap = {
     'KeyS': new V2(0, 1.0),
@@ -503,11 +503,11 @@ class Background {
     }
 
     render(camera) {
-        let bounds = camera.getScreenWorldBounds()
-        let gridBoundsXMin = Math.floor(bounds[0].x / this.cellWidth)
-        let gridBoundsXMax = Math.floor(bounds[1].x / this.cellWidth)
-        let gridBoundsYMin = Math.floor(bounds[0].y / this.cellHeight)
-        let gridBoundsYMax = Math.floor(bounds[1].y / this.cellHeight)
+        let bounds = camera.getScreenWorldBounds();
+        let gridBoundsXMin = Math.floor(bounds[0].x / this.cellWidth);
+        let gridBoundsXMax = Math.floor(bounds[1].x / this.cellWidth);
+        let gridBoundsYMin = Math.floor(bounds[0].y / this.cellHeight);
+        let gridBoundsYMax = Math.floor(bounds[1].y / this.cellHeight);
 
         for (let cellX = gridBoundsXMin; cellX <= gridBoundsXMax + 1; ++cellX)
             for (let cellY = gridBoundsYMin; cellY <= gridBoundsYMax; ++cellY) {
@@ -515,8 +515,8 @@ class Background {
                     cellX * this.cellWidth,
                     (cellY + (cellX % 2 == 0 ? 0.5 : 0)) * this.cellHeight
                 );
-                let points = this.cellPoints.map(p => p.add(offset))
-                camera.drawLine(points, BACKGROUND_COLOR)
+                let points = this.cellPoints.map(p => p.add(offset));
+                camera.drawLine(points, BACKGROUND_COLOR);
             }
     }
 }
@@ -539,7 +539,7 @@ class Game {
         this.paused = false;
         this.camera.pos = new V2(0.0, 0.0);
         this.camera.vel = new V2(0.0, 0.0);
-        this.background = new Background()
+        this.background = new Background();
     }
 
     constructor(context) {
