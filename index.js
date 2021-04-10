@@ -140,7 +140,6 @@ void main() {
         gl.useProgram(this.program);
 
         this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
-        gl.uniform2f(this.resolutionUniform, DEFAULT_RESOLUTION.w, DEFAULT_RESOLUTION.h);
 
         // Mesh Position
         {
@@ -230,8 +229,9 @@ void main() {
     }
 
     // RENDERER INTERFACE //////////////////////////////
-    setScale(scale) {
-        // I'm not really sure what to do here in case of WebGL
+    setViewport(width, height) {
+        this.gl.viewport(0, 0, width, height);
+        this.gl.uniform2f(this.resolutionUniform, width, height);
     }
 
     setTarget(target) {
@@ -410,8 +410,13 @@ class Renderer2D {
         this.context2d.stroke();
     }
 
-    setScale(scale) {
+    setViewport(width, height) {
         const IDENTITY = new DOMMatrix();
+
+        const scale = Math.min(
+            width / DEFAULT_RESOLUTION.w,
+            height / DEFAULT_RESOLUTION.h,
+        );
 
         this.unitsPerPixel = 1 / scale;
 
@@ -998,11 +1003,7 @@ let game = null;
         if (windowWasResized) {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            const scale = Math.min(
-                window.innerWidth / DEFAULT_RESOLUTION.w,
-                window.innerHeight / DEFAULT_RESOLUTION.h,
-            );
-            game.renderer.setScale(scale);
+            game.renderer.setViewport(window.innerWidth, window.innerHeight);
             windowWasResized = false;
         }
 
