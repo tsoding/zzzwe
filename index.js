@@ -782,6 +782,12 @@ class Game {
         this.player = new Player(new V2(0, 0));
         this.score = 0;
         this.mousePos = new V2(0, 0);
+        this.movingTouchId = undefined;
+        this.movingTouchStart = new V2(0.0, 0.0);
+        this.movingTouchDirection = new V2(0.0, 0.0);
+        this.shootingTouchId = undefined;
+        this.shootingTouchStart = new V2(0.0, 0.0);
+        this.shootingTouchDirection = new V2(0.0, 0.0);
         this.pressedKeys = new Set();
         this.tutorial = new Tutorial();
         this.bullets = [];
@@ -822,7 +828,7 @@ class Game {
                 moved = true;
             }
         }
-        vel = vel.normalize().scale(PLAYER_SPEED);
+        vel = vel.add(this.movingTouchDirection).normalize().scale(PLAYER_SPEED);
         if (moved) {
             this.tutorial.playerMoved();
         }
@@ -958,6 +964,7 @@ class Game {
 
     mouseDown(event) {
         if (this.paused) {
+            this.paused = false;
             return;
         }
 
@@ -965,7 +972,65 @@ class Game {
             return;
         }
         const mousePos = new V2(event.offsetX, event.offsetY);
-        this.bullets.push(this.player.shootAt(this.renderer.screenToWorld(mousePos)));
+        this.player.target = this.renderer.screenToWorld(mousePos)
+        this.player.shooting = true;
+    }
+
+    mouseUp(event) {
+        this.player.shooting = false;
+    }
+
+    touchMove(event) {
+        Array.from(event.changedTouches).forEach(touch => {
+            if (touch.identifier === this.movingTouchId) {
+                this.movingTouchDirection = new V2(touch.clientX, touch.clientY).sub(this.movingTouchStart);
+            }
+            if (touch.identifier === this.shootingTouchId) {
+                this.shootingTouchDirection = new V2(touch.clientX, touch.clientY).sub(this.shootingTouchStart).scale(1000);
+                this.player.target = this.player.pos.add(this.shootingTouchDirection);
+                this.player.shooting = true;
+            }
+        })
+    }
+
+    touchDown(event) {
+        event.preventDefault();
+        if (this.paused) {
+            this.paused = false;
+            return;
+        }
+
+        if (this.player.health <= 0.0) {
+            this.restart();
+            return;
+        }
+        this.tutorial.playerMoved();
+        Array.from(event.changedTouches).forEach(touch => {
+            if (touch.clientX < this.renderer.context.canvas.width / 2) {
+                if (this.movingTouchId === undefined) {
+                    this.movingTouchId = touch.identifier;
+                    this.movingTouchStart = new V2(touch.clientX, touch.clientY);
+                }
+            } else {
+                if (this.shootingTouchId === undefined) {
+                    this.shootingTouchId = touch.identifier;
+                    this.shootingTouchStart = new V2(touch.clientX, touch.clientY);
+                }
+            }
+        })
+    }
+
+    touchUp(event) {
+        Array.from(event.changedTouches).forEach(touch => {
+            if (this.movingTouchId === touch.identifier) {
+                this.movingTouchId = undefined;
+                this.movingTouchDirection = new V2(0.0, 0.0);
+            }
+            if (this.shootingTouchId === touch.identifier) {
+                this.shootingTouchId = undefined;
+                this.player.shooting = false;
+            }
+        });
     }
 }
 
@@ -1000,12 +1065,6 @@ let game = null;
 
     game = new Game(renderer);
 
-    // https://drafts.csswg.org/mediaqueries-4/#mf-interaction
-    // https://patrickhlauke.github.io/touch/pointer-hover-any-pointer-any-hover/
-    if (window.matchMedia("(pointer: coarse)").matches) {
-        game.tutorial.playerMoved();
-    }
-
     let start;
     function step(timestamp) {
         if (start === undefined) {
@@ -1029,8 +1088,6 @@ let game = null;
 
     window.requestAnimationFrame(step);
 
-    // TODO(#30): game is not playable on mobile without external keyboard
-
     document.addEventListener('keydown', event => {
         game.keyDown(event);
     });
@@ -1039,12 +1096,28 @@ let game = null;
         game.keyUp(event);
     });
 
-    document.addEventListener('pointermove', event => {
+    document.addEventListener('mousemove', event => {
         game.mouseMove(event);
     });
 
-    document.addEventListener('pointerdown', event => {
+    document.addEventListener('mousedown', event => {
         game.mouseDown(event);
+    });
+
+    document.addEventListener('mouseup', event => {
+        game.mouseUp(event);
+    });
+
+    canvas.addEventListener('touchmove', event => {
+        game.touchMove(event);
+    });
+
+    canvas.addEventListener('touchstart', event => {
+        game.touchDown(event);
+    });
+
+    canvas.addEventListener('touchend', event => {
+        game.touchUp(event);
     });
 
     window.addEventListener('resize', event => {
