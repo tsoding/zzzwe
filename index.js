@@ -187,6 +187,25 @@ class Renderer2D {
         this.context2d.setTransform(IDENTITY);
         this.context2d.scale(scale, scale);
     }
+
+    background() {
+        let bounds = this.getScreenWorldBounds();
+        let gridBoundsXMin = Math.floor(bounds[0].x / BACKGROUND_CELL_WIDTH);
+        let gridBoundsXMax = Math.floor(bounds[1].x / BACKGROUND_CELL_WIDTH);
+        let gridBoundsYMin = Math.floor(bounds[0].y / BACKGROUND_CELL_HEIGHT);
+        let gridBoundsYMax = Math.floor(bounds[1].y / BACKGROUND_CELL_HEIGHT);
+
+        for (let cellX = gridBoundsXMin; cellX <= gridBoundsXMax + 1; ++cellX) {
+            for (let cellY = gridBoundsYMin; cellY <= gridBoundsYMax; ++cellY) {
+                let offset = new V2(
+                    cellX * BACKGROUND_CELL_WIDTH,
+                    (cellY + (cellX % 2 == 0 ? 0.5 : 0)) * BACKGROUND_CELL_HEIGHT,
+                );
+                let points = BACKGROUND_CELL_POINTS.map(p => p.add(offset));
+                this.drawLine(points, BACKGROUND_COLOR);
+            }
+        }
+    }
 }
 
 const PLAYER_COLOR = Color.hex("#f43841");
@@ -219,6 +238,16 @@ const MESSAGE_COLOR = Color.hex("#ffffff");
 const TRAIL_COOLDOWN = 1 / 60;
 const BACKGROUND_CELL_RADIUS = 120;
 const BACKGROUND_COLOR = Color.hex("#ffffff").withAlpha(0.5);
+const BACKGROUND_CELL_WIDTH = 1.5 * BACKGROUND_CELL_RADIUS;
+const BACKGROUND_CELL_HEIGHT = Math.sqrt(3) * BACKGROUND_CELL_RADIUS;
+const BACKGROUND_CELL_POINTS = (() => {
+    let points = [];
+    for (let i = 0; i < 4; ++i) {
+        let angle = 2 * Math.PI * i / 6;
+        points.push(new V2(Math.cos(angle), Math.sin(angle)).scale(BACKGROUND_CELL_RADIUS));
+    }
+    return points;
+})();
 
 const directionMap = {
     'KeyS': new V2(0, 1.0),
@@ -489,39 +518,6 @@ class Player {
     }
 }
 
-// TODO: Move background functionality to the Renderer interface
-class Background {
-    cellPoints = [];
-    cellWidth = 1.5 * BACKGROUND_CELL_RADIUS;
-    cellHeight = Math.sqrt(3) * BACKGROUND_CELL_RADIUS;
-
-    constructor() {
-        // We need only half hexagon segments since each hexagon is bounded with other hexagons and their segments overlap
-        for (let i = 0; i < 4; ++i) {
-            let angle = 2 * Math.PI * i / 6;
-            this.cellPoints.push(new V2(Math.cos(angle), Math.sin(angle)).scale(BACKGROUND_CELL_RADIUS));
-        }
-    }
-
-    render(renderer) {
-        let bounds = renderer.getScreenWorldBounds();
-        let gridBoundsXMin = Math.floor(bounds[0].x / this.cellWidth);
-        let gridBoundsXMax = Math.floor(bounds[1].x / this.cellWidth);
-        let gridBoundsYMin = Math.floor(bounds[0].y / this.cellHeight);
-        let gridBoundsYMax = Math.floor(bounds[1].y / this.cellHeight);
-
-        for (let cellX = gridBoundsXMin; cellX <= gridBoundsXMax + 1; ++cellX)
-            for (let cellY = gridBoundsYMin; cellY <= gridBoundsYMax; ++cellY) {
-                let offset = new V2(
-                    cellX * this.cellWidth,
-                    (cellY + (cellX % 2 == 0 ? 0.5 : 0)) * this.cellHeight
-                );
-                let points = this.cellPoints.map(p => p.add(offset));
-                renderer.drawLine(points, BACKGROUND_COLOR);
-            }
-    }
-}
-
 // TODO(#8): the game stops when you unfocus the browser
 // TODO(#9): some sort of inertia during player movement
 class Game {
@@ -540,7 +536,6 @@ class Game {
         this.paused = false;
         this.renderer.cameraPos = new V2(0.0, 0.0);
         this.renderer.cameraVel = new V2(0.0, 0.0);
-        this.background = new Background();
     }
 
     constructor(renderer) {
@@ -644,7 +639,7 @@ class Game {
 
     render() {
         this.renderer.clear();
-        this.background.render(this.renderer);
+        this.renderer.background();
         this.player.render(this.renderer);
 
         this.renderEntities(this.bullets);
