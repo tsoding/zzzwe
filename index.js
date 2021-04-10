@@ -463,6 +463,7 @@ const PLAYER_COLOR = Color.hex("#f43841");
 const PLAYER_SPEED = 1000;
 const PLAYER_RADIUS = 69;
 const PLAYER_MAX_HEALTH = 100;
+const PLAYER_SHOOT_COOLDOWN = 0.25;
 const PLAYER_TRAIL_RATE = 3.0;
 const TUTORIAL_POPUP_SPEED = 1.7;
 const BULLET_RADIUS = 42;
@@ -724,6 +725,9 @@ class Trail {
 
 class Player {
     health = PLAYER_MAX_HEALTH;
+    target = new V2(0.0, 0.0);
+    shootCooldown = PLAYER_SHOOT_COOLDOWN;
+    lastShoot = 0.0;
     trail = new Trail(PLAYER_RADIUS, PLAYER_COLOR, PLAYER_TRAIL_RATE);
 
     constructor(pos) {
@@ -746,9 +750,9 @@ class Player {
         this.trail.update(dt);
     }
 
-    shootAt(target) {
+    shoot() {
         this.shootCount += 1;
-        const bulletDir = target
+        const bulletDir = this.target
               .sub(this.pos)
               .normalize();
         const bulletVel = bulletDir.scale(BULLET_SPEED);
@@ -824,6 +828,14 @@ class Game {
         }
 
         this.player.update(dt, vel);
+        if (this.player.shooting) {
+            let now = performance.now() / 1000;
+            if (now - this.player.lastShoot > this.player.shootCooldown) {
+                this.player.lastShoot = now;
+                this.tutorial.playerShot();
+                this.bullets.push(this.player.shoot());
+            }
+        }
 
         this.tutorial.update(dt);
 
@@ -938,6 +950,10 @@ class Game {
     }
 
     mouseMove(event) {
+        if (!this.paused && this.player.shooting) {
+            const mousePos = new V2(event.offsetX, event.offsetY);
+            this.player.target = this.camera.screenToWorld(mousePos);
+        }
     }
 
     mouseDown(event) {
@@ -948,8 +964,6 @@ class Game {
         if (this.player.health <= 0.0) {
             return;
         }
-
-        this.tutorial.playerShot();
         const mousePos = new V2(event.offsetX, event.offsetY);
         this.bullets.push(this.player.shootAt(this.renderer.screenToWorld(mousePos)));
     }
