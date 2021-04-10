@@ -86,71 +86,71 @@ class V2 {
 
 const IDENTITY = new DOMMatrix();
 
-class Camera {
-    pos = new V2(0, 0);
-    vel = new V2(0, 0);
+class Renderer2D {
+    cameraPos = new V2(0, 0);
+    cameraVel = new V2(0, 0);
     grayness = 0.0;
     unitsPerPixel = 1.0;
 
-    constructor(context) {
-        this.context = context;
+    constructor(context2d) {
+        this.context2d = context2d;
     }
 
     update(dt) {
-        this.pos = this.pos.add(this.vel.scale(dt));
+        this.cameraPos = this.cameraPos.add(this.cameraVel.scale(dt));
     }
 
     width() {
-        return this.context.canvas.width * this.unitsPerPixel;
+        return this.context2d.canvas.width * this.unitsPerPixel;
     }
 
     height() {
-        return this.context.canvas.height * this.unitsPerPixel;
+        return this.context2d.canvas.height * this.unitsPerPixel;
     }
 
     getScreenWorldBounds() {
         let topLeft = this.screenToWorld(new V2(0, 0));
-        let bottomRight = this.screenToWorld(new V2(this.context.canvas.width, this.context.canvas.height));
+        let bottomRight = this.screenToWorld(new V2(this.context2d.canvas.width, this.context2d.canvas.height));
         return [topLeft, bottomRight];
     }
 
     screenToWorld(point) {
-        const width = this.context.canvas.width;
-        const height = this.context.canvas.height;
+        const width = this.context2d.canvas.width;
+        const height = this.context2d.canvas.height;
         return point
             .sub(new V2(width / 2, height / 2))
             .scale(this.unitsPerPixel)
-            .add(this.pos);
+            .add(this.cameraPos);
     }
 
     worldToCamera(point) {
         const width = this.width();
         const height = this.height();
-        return point.sub(this.pos).add(new V2(width / 2, height / 2));
+        return point.sub(this.cameraPos).add(new V2(width / 2, height / 2));
     }
 
     clear() {
         const width = this.width();
         const height = this.height();
-        this.context.clearRect(0, 0, width, height);
+        this.context2d.clearRect(0, 0, width, height);
     }
 
     setTarget(target) {
-        this.vel = target.sub(this.pos);
+        this.cameraVel = target.sub(this.cameraPos);
     }
 
     fillCircle(center, radius, color) {
         const screenCenter = this.worldToCamera(center);
-        this.context.fillStyle = color.grayScale(this.grayness).toRgba();
-        this.context.beginPath();
-        this.context.arc(screenCenter.x, screenCenter.y, radius, 0, 2 * Math.PI, false);
-        this.context.fill();
+        this.context2d.fillStyle = color.grayScale(this.grayness).toRgba();
+        this.context2d.beginPath();
+        this.context2d.arc(screenCenter.x, screenCenter.y, radius, 0, 2 * Math.PI, false);
+        this.context2d.fill();
     }
 
     fillRect(x, y, w, h, color) {
         const screenPos = this.worldToCamera(new V2(x, y));
-        this.context.fillStyle = color.grayScale(this.grayness).toRgba();
-        this.context.fillRect(screenPos.x, screenPos.y, w, h);
+        this.context2d.fillStyle = color.grayScale(this.grayness).toRgba();
+        this.context2d.fillRect(screenPos.x, screenPos.y, w, h);
     }
 
     fillMessage(text, color) {
@@ -159,33 +159,33 @@ class Camera {
 
         const FONT_SIZE = 69;
         const LINE_PADDING = 69;
-        this.context.fillStyle = color.toRgba();
-        this.context.font = `${FONT_SIZE}px LexendMega`;
-        this.context.textAlign = "center";
-        this.context.textBaseline = "middle";
+        this.context2d.fillStyle = color.toRgba();
+        this.context2d.font = `${FONT_SIZE}px LexendMega`;
+        this.context2d.textAlign = "center";
+        this.context2d.textBaseline = "middle";
         const lines = text.split("\n");
         const MESSAGE_HEIGTH = (FONT_SIZE + LINE_PADDING) * (lines.length - 1);
         for (let i = 0; i < lines.length; ++i) {
-            this.context.fillText(lines[i], width / 2, (height - MESSAGE_HEIGTH) / 2 + (FONT_SIZE + LINE_PADDING) * i);
+            this.context2d.fillText(lines[i], width / 2, (height - MESSAGE_HEIGTH) / 2 + (FONT_SIZE + LINE_PADDING) * i);
         }
     }
 
     drawLine(points, color) {
-        this.context.beginPath();
+        this.context2d.beginPath();
         for (let i = 0; i < points.length; ++i) {
             let screenPoint = this.worldToCamera(points[i]);
-            if (i == 0) this.context.moveTo(screenPoint.x, screenPoint.y);
-            else this.context.lineTo(screenPoint.x, screenPoint.y);
+            if (i == 0) this.context2d.moveTo(screenPoint.x, screenPoint.y);
+            else this.context2d.lineTo(screenPoint.x, screenPoint.y);
         }
-        this.context.strokeStyle = color.toRgba();
-        this.context.stroke();
+        this.context2d.strokeStyle = color.toRgba();
+        this.context2d.stroke();
     }
 
     setScale(scale) {
         this.unitsPerPixel = 1 / scale;
 
-        this.context.setTransform(IDENTITY);
-        this.context.scale(scale, scale);
+        this.context2d.setTransform(IDENTITY);
+        this.context2d.scale(scale, scale);
     }
 }
 
@@ -236,10 +236,10 @@ class Particle {
         this.color = color;
     }
 
-    render(camera) {
+    render(renderer) {
         const a = this.lifetime / PARTICLE_MAX_LIFETIME;
-        camera.fillCircle(this.pos, this.radius,
-                          this.color.withAlpha(a));
+        renderer.fillCircle(this.pos, this.radius,
+                            this.color.withAlpha(a));
     }
 
     update(dt) {
@@ -286,9 +286,9 @@ class Enemy {
         }
     }
 
-    render(camera) {
-        this.trail.render(camera);
-        camera.fillCircle(this.pos, this.radius, ENEMY_COLOR);
+    render(renderer) {
+        this.trail.render(renderer);
+        renderer.fillCircle(this.pos, this.radius, ENEMY_COLOR);
     }
 }
 
@@ -304,8 +304,8 @@ class Bullet {
         this.lifetime -= dt;
     }
 
-    render(camera) {
-        camera.fillCircle(this.pos, BULLET_RADIUS, PLAYER_COLOR);
+    render(renderer) {
+        renderer.fillCircle(this.pos, BULLET_RADIUS, PLAYER_COLOR);
     }
 }
 
@@ -334,8 +334,8 @@ class TutorialPopup {
         }
     }
 
-    render(camera) {
-        camera.fillMessage(this.text, MESSAGE_COLOR.withAlpha(this.alpha));
+    render(renderer) {
+        renderer.fillMessage(this.text, MESSAGE_COLOR.withAlpha(this.alpha));
     }
 
     fadeIn() {
@@ -376,8 +376,8 @@ class Tutorial {
         this.popup.update(dt);
     }
 
-    render(camera) {
-        this.popup.render(camera);
+    render(renderer) {
+        this.popup.render(renderer);
     }
 
     playerMoved() {
@@ -408,10 +408,10 @@ class Trail {
         this.rate = rate;
     }
 
-    render(camera) {
+    render(renderer) {
         const n = this.trail.length;
         for (let i = 0; i < n; ++i) {
-            camera.fillCircle(
+            renderer.fillCircle(
                 this.trail[i].pos,
                 this.radius * this.trail[i].a,
                 this.color.withAlpha(0.2 * this.trail[i].a));
@@ -451,11 +451,11 @@ class Player {
         this.shootCount = window.localStorage.getItem(LOCAL_STORAGE_TUTORIAL) == TutorialState.Finished ? 0 : -1;
     }
 
-    render(camera) {
-        this.trail.render(camera);
+    render(renderer) {
+        this.trail.render(renderer);
 
         if (this.health > 0.0) {
-            camera.fillCircle(this.pos, PLAYER_RADIUS, PLAYER_COLOR);
+            renderer.fillCircle(this.pos, PLAYER_RADIUS, PLAYER_COLOR);
         }
     }
 
@@ -489,6 +489,7 @@ class Player {
     }
 }
 
+// TODO: Move background functionality to the Renderer interface
 class Background {
     cellPoints = [];
     cellWidth = 1.5 * BACKGROUND_CELL_RADIUS;
@@ -502,8 +503,8 @@ class Background {
         }
     }
 
-    render(camera) {
-        let bounds = camera.getScreenWorldBounds();
+    render(renderer) {
+        let bounds = renderer.getScreenWorldBounds();
         let gridBoundsXMin = Math.floor(bounds[0].x / this.cellWidth);
         let gridBoundsXMax = Math.floor(bounds[1].x / this.cellWidth);
         let gridBoundsYMin = Math.floor(bounds[0].y / this.cellHeight);
@@ -516,7 +517,7 @@ class Background {
                     (cellY + (cellX % 2 == 0 ? 0.5 : 0)) * this.cellHeight
                 );
                 let points = this.cellPoints.map(p => p.add(offset));
-                camera.drawLine(points, BACKGROUND_COLOR);
+                renderer.drawLine(points, BACKGROUND_COLOR);
             }
     }
 }
@@ -537,30 +538,30 @@ class Game {
         this.enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
         this.enemySpawnCooldown = ENEMY_SPAWN_COOLDOWN;
         this.paused = false;
-        this.camera.pos = new V2(0.0, 0.0);
-        this.camera.vel = new V2(0.0, 0.0);
+        this.renderer.cameraPos = new V2(0.0, 0.0);
+        this.renderer.cameraVel = new V2(0.0, 0.0);
         this.background = new Background();
     }
 
-    constructor(context) {
-        this.camera = new Camera(context);
+    constructor(renderer) {
+        this.renderer = renderer;
         this.restart();
     }
 
     update(dt) {
         if (this.paused) {
-            this.camera.grayness = 1.0;
+            this.renderer.grayness = 1.0;
             return;
         } else {
-            this.camera.grayness = 1.0 - this.player.health / PLAYER_MAX_HEALTH;
+            this.renderer.grayness = 1.0 - this.player.health / PLAYER_MAX_HEALTH;
         }
 
         if (this.player.health <= 0.0) {
             dt /= 50;
         }
 
-        this.camera.setTarget(this.player.pos);
-        this.camera.update(dt);
+        this.renderer.setTarget(this.player.pos);
+        this.renderer.update(dt);
 
         let vel = new V2(0, 0);
         let moved = false;
@@ -637,26 +638,26 @@ class Game {
 
     renderEntities(entities) {
         for (let entity of entities) {
-            entity.render(this.camera);
+            entity.render(this.renderer);
         }
     }
 
     render() {
-        this.camera.clear();
-        this.background.render(this.camera);
-        this.player.render(this.camera);
+        this.renderer.clear();
+        this.background.render(this.renderer);
+        this.player.render(this.renderer);
 
         this.renderEntities(this.bullets);
         this.renderEntities(this.particles);
         this.renderEntities(this.enemies);
 
         if (this.paused) {
-            this.camera.fillMessage("PAUSED (SPACE to resume)", MESSAGE_COLOR);
+            this.renderer.fillMessage("PAUSED (SPACE to resume)", MESSAGE_COLOR);
         } else if(this.player.health <= 0.0) {
             const accuracy = Math.ceil(100 * this.player.accuracy / Math.max(this.player.shootCount, 1.0));
-            this.camera.fillMessage(`YOUR SCORE: ${this.score}\nACCURACY: ${accuracy}%\n(SPACE to restart)`, MESSAGE_COLOR);
+            this.renderer.fillMessage(`YOUR SCORE: ${this.score}\nACCURACY: ${accuracy}%\n(SPACE to restart)`, MESSAGE_COLOR);
         } else {
-            this.tutorial.render(this.camera);
+            this.tutorial.render(this.renderer);
         }
     }
 
@@ -700,7 +701,7 @@ class Game {
 
         this.tutorial.playerShot();
         const mousePos = new V2(event.offsetX, event.offsetY);
-        this.bullets.push(this.player.shootAt(this.camera.screenToWorld(mousePos)));
+        this.bullets.push(this.player.shootAt(this.renderer.screenToWorld(mousePos)));
     }
 }
 
@@ -714,7 +715,7 @@ let game = null;
     const context = canvas.getContext("2d");
     let windowWasResized = true;
 
-    game = new Game(context);
+    game = new Game(new Renderer2D(context));
 
     // https://drafts.csswg.org/mediaqueries-4/#mf-interaction
     // https://patrickhlauke.github.io/touch/pointer-hover-any-pointer-any-hover/
@@ -737,7 +738,7 @@ let game = null;
                 window.innerWidth / DEFAULT_RESOLUTION.w,
                 window.innerHeight / DEFAULT_RESOLUTION.h,
             );
-            game.camera.setScale(scale);
+            game.renderer.setScale(scale);
             windowWasResized = false;
         }
 
