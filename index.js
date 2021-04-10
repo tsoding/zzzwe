@@ -635,7 +635,11 @@ const TutorialState = Object.freeze({
     "Finished": 2,
 });
 
-const TutorialMessages = Object.freeze([
+const TutorialMessages = window.matchMedia("(pointer: coarse)").matches ? Object.freeze([
+    "Drag left side of screen to move",
+    "Drag or tap right side of screen to shoot",
+    ""
+]) : Object.freeze([
     "WASD to move",
     "Left Mouse Click to shoot",
     ""
@@ -918,10 +922,10 @@ class Game {
         this.renderEntities(this.enemies);
 
         if (this.paused) {
-            this.renderer.fillMessage("PAUSED (SPACE to resume)", MESSAGE_COLOR);
+            this.renderer.fillMessage("PAUSED (SPACE or touch to resume)", MESSAGE_COLOR);
         } else if(this.player.health <= 0.0) {
             const accuracy = Math.ceil(100 * this.player.accuracy / Math.max(this.player.shootCount, 1.0));
-            this.renderer.fillMessage(`YOUR SCORE: ${this.score}\nACCURACY: ${accuracy}%\n(SPACE to restart)`, MESSAGE_COLOR);
+            this.renderer.fillMessage(`YOUR SCORE: ${this.score}\nACCURACY: ${accuracy}%\n(SPACE or touch to restart)`, MESSAGE_COLOR);
         } else {
             this.tutorial.render(this.renderer);
         }
