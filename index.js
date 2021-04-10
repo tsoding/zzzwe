@@ -1137,4 +1137,14 @@ let game = null;
     window.addEventListener('focus', event => {
         start = performance.now() - 1000 / 60;
     });
+
+    window.addEventListener("orientationchange", (event) => {
+        const angle = Math.abs(event.target.screen.orientation.angle);
+        if (angle === 90 || angle === 270) {
+            document.body.requestFullscreen()
+                .catch(error => console.error(`${error.message}. API can only be initiated after user gesture.`));
+        } else if (document.fullscreenElement){
+            document.exitFullscreen();
+        }
+    });
 })();
