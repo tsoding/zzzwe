@@ -1010,7 +1010,7 @@ class Game {
         }
         this.tutorial.playerMoved();
         Array.from(event.changedTouches).forEach(touch => {
-            if (touch.clientX < this.renderer.context.canvas.width / 2) {
+            if (touch.clientX < window.innerWidth / 2) {
                 if (this.movingTouchId === undefined) {
                     this.movingTouchId = touch.identifier;
                     this.movingTouchStart = new V2(touch.clientX, touch.clientY);
