@@ -43,7 +43,7 @@ class Color {
                              parseInt(b, 16) / 255.0,
                              1.0);
         } else {
-            throw `Could not parse ${hexcolor} as color`;
+            throw new Error(`Could not parse ${hexcolor} as color`);
         }
     }
 }
@@ -85,6 +85,13 @@ class V2 {
 }
 
 const IDENTITY = new DOMMatrix();
+
+class RendererWebGL {
+    constructor(gl, ext) {
+        this.gl = gl;
+        this.ext = ext;
+    }
+}
 
 class Renderer2D {
     cameraPos = new V2(0, 0);
@@ -706,11 +713,30 @@ const DEFAULT_RESOLUTION = {w: 3840, h: 2160};
 let game = null;
 
 (() => {
+    const webgl = new URLSearchParams(document.location.search).has("webgl");
+
     const canvas = document.getElementById("game-canvas");
-    const context = canvas.getContext("2d");
+    const renderer = (() => {
+        if (webgl) {
+            const gl = canvas.getContext("webgl");
+            if (!gl) {
+                throw new Error(`Unable to initilize WebGL. Your browser probably does not support that.`);
+            }
+
+            const ext = gl.getExtension('ANGLE_instanced_arrays');
+            if (!ext) {
+                throw new Error(`Unable to initialize Instanced Arrays extension for WebGL. Your browser probably does not support that.`);
+            }
+
+            return new RendererWebGL(gl, ext);
+        } else {
+            return new Renderer2D(canvas.getContext("2d"));
+        }
+    })();
+
     let windowWasResized = true;
 
-    game = new Game(new Renderer2D(context));
+    game = new Game(renderer);
 
     // https://drafts.csswg.org/mediaqueries-4/#mf-interaction
     // https://patrickhlauke.github.io/touch/pointer-hover-any-pointer-any-hover/
