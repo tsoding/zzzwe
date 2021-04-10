@@ -43,7 +43,7 @@ class Color {
                              parseInt(b, 16) / 255.0,
                              1.0);
         } else {
-            throw `Could not parse ${hexcolor} as color`;
+            throw new Error(`Could not parse ${hexcolor} as color`);
         }
     }
 }
@@ -84,7 +84,236 @@ class V2 {
     }
 }
 
-const IDENTITY = new DOMMatrix();
+class RendererWebGL {
+    cameraPos = new V2(0, 0);
+    cameraVel = new V2(0, 0);
+
+    vertexShaderSource = `#version 100
+precision mediump float;
+
+uniform vec2 resolution;
+
+attribute vec2 meshPosition;
+
+attribute vec2 circleCenter;
+attribute float circleRadius;
+attribute vec4 circleColor;
+
+varying vec4 vertexColor;
+varying vec2 vertexUV;
+
+vec2 camera_projection(vec2 position) {
+    return vec2(2.0 * position.x / resolution.x, 2.0 * position.y / resolution.y);
+}
+
+void main() {
+    float radius = circleRadius;
+    gl_Position = vec4(camera_projection(meshPosition * radius + circleCenter), 0.0, 1.0);
+    vertexColor = circleColor;
+    vertexUV = meshPosition;
+}
+`;
+
+    fragmentShaderSource =`#version 100
+precision mediump float;
+
+varying vec4 vertexColor;
+varying vec2 vertexUV;
+
+void main() {
+    vec4 color = vertexColor;
+    gl_FragColor = length(vertexUV) < 1.0 ? color : vec4(0.0);
+}
+`;
+
+    constructor(gl, ext) {
+        this.gl = gl;
+        this.ext = ext;
+        this.circlesCount = 0;
+
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+        let vertexShader = this.compileShaderSource(this.vertexShaderSource, gl.VERTEX_SHADER);
+        let fragmentShader = this.compileShaderSource(this.fragmentShaderSource, gl.FRAGMENT_SHADER);
+        this.program = this.linkShaderProgram([vertexShader, fragmentShader]);
+        gl.useProgram(this.program);
+
+        this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
+
+        // Mesh Position
+        {
+            this.meshPositionBufferData = new Float32Array(TRIANGLE_PAIR * TRIANGLE_VERTICIES * VEC2_COUNT);
+            for (let triangle = 0; triangle < TRIANGLE_PAIR; ++triangle) {
+                for (let vertex = 0; vertex < TRIANGLE_VERTICIES; ++vertex) {
+                    const quad = triangle + vertex;
+                    const index =
+                          triangle * TRIANGLE_VERTICIES * VEC2_COUNT +
+                          vertex * VEC2_COUNT;
+                    this.meshPositionBufferData[index + VEC2_X] = (2 * (quad & 1) - 1);
+                    this.meshPositionBufferData[index + VEC2_Y] = (2 * ((quad >> 1) & 1) - 1);
+                }
+            }
+
+            this.meshPositionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.meshPositionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, this.meshPositionBufferData, gl.STATIC_DRAW);
+
+            const meshPositionAttrib = gl.getAttribLocation(this.program, 'meshPosition');
+            gl.vertexAttribPointer(
+                meshPositionAttrib,
+                VEC2_COUNT,
+                gl.FLOAT,
+                false,
+                0,
+                0);
+            gl.enableVertexAttribArray(meshPositionAttrib);
+        }
+
+        // Circle Center
+        {
+            this.circleCenterBufferData = new Float32Array(VEC2_COUNT * CIRCLE_BATCH_CAPACITY);
+            this.circleCenterBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.circleCenterBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, this.circleCenterBufferData, gl.DYNAMIC_DRAW);
+
+            const circleCenterAttrib = gl.getAttribLocation(this.program, 'circleCenter');
+            gl.vertexAttribPointer(
+                circleCenterAttrib,
+                VEC2_COUNT,
+                gl.FLOAT,
+                false,
+                0,
+                0);
+            gl.enableVertexAttribArray(circleCenterAttrib);
+            ext.vertexAttribDivisorANGLE(circleCenterAttrib, 1);
+        }
+
+        // Circle Radius
+        {
+            this.circleRadiusBufferData = new Float32Array(CIRCLE_BATCH_CAPACITY);
+            this.circleRadiusBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.circleRadiusBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, this.circleRadiusBufferData, gl.DYNAMIC_DRAW);
+
+            const circleRadiusAttrib = gl.getAttribLocation(this.program, 'circleRadius');
+            gl.vertexAttribPointer(
+                circleRadiusAttrib,
+                1,
+                gl.FLOAT,
+                false,
+                0,
+                0);
+            gl.enableVertexAttribArray(circleRadiusAttrib);
+            ext.vertexAttribDivisorANGLE(circleRadiusAttrib, 1);
+        }
+
+        // Circle Color
+        {
+            this.circleColorBufferData = new Float32Array(RGBA_COUNT * CIRCLE_BATCH_CAPACITY);
+            this.circleColorBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.circleColorBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, this.circleColorBufferData, gl.DYNAMIC_DRAW);
+
+            const circleColorAttrib = gl.getAttribLocation(this.program, 'circleColor');
+            gl.vertexAttribPointer(
+                circleColorAttrib,
+                RGBA_COUNT,
+                gl.FLOAT,
+                false,
+                0,
+                0);
+            gl.enableVertexAttribArray(circleColorAttrib);
+            ext.vertexAttribDivisorANGLE(circleColorAttrib, 1);
+        }
+    }
+
+    // RENDERER INTERFACE //////////////////////////////
+    setViewport(width, height) {
+        this.gl.viewport(0, 0, width, height);
+        this.gl.uniform2f(this.resolutionUniform, width, height);
+    }
+
+    setTarget(target) {
+        this.cameraVel = target.sub(this.cameraPos);
+    }
+
+    update(dt) {
+        this.cameraPos = this.cameraPos.add(this.cameraVel.scale(dt));
+    }
+
+    present() {
+        // TODO: bufferSubData should probably use subview of this Float32Array if that's even possible
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleCenterBuffer);
+        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleCenterBufferData);
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleRadiusBuffer);
+        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleRadiusBufferData);
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleColorBuffer);
+        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleColorBufferData);
+        this.ext.drawArraysInstancedANGLE(this.gl.TRIANGLES, 0, TRIANGLE_PAIR * TRIANGLE_VERTICIES, this.circlesCount);
+    }
+
+    clear() {
+        this.circlesCount = 0;
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    }
+
+    background() {
+        // TODO: RendererWebGL.background() is not implemented
+    }
+
+    fillCircle(center, radius, color) {
+        if (this.circlesCount < CIRCLE_BATCH_CAPACITY) {
+            this.circleCenterBufferData[this.circlesCount * VEC2_COUNT + VEC2_X] = center.x;
+            this.circleCenterBufferData[this.circlesCount * VEC2_COUNT + VEC2_Y] = center.y;
+
+            this.circleRadiusBufferData[this.circlesCount] = radius;
+
+            this.circleColorBufferData[this.circlesCount * RGBA_COUNT + RGBA_R] = color.r;
+            this.circleColorBufferData[this.circlesCount * RGBA_COUNT + RGBA_G] = color.g;
+            this.circleColorBufferData[this.circlesCount * RGBA_COUNT + RGBA_B] = color.b;
+            this.circleColorBufferData[this.circlesCount * RGBA_COUNT + RGBA_A] = color.a;
+
+            this.circlesCount += 1;
+        }
+    }
+
+    fillMessage(text, color) {
+        // TODO: RendererWebGL.fillMessage() is not implemented
+    }
+    ////////////////////////////////////////////////////////////
+
+    shaderTypeToString(shaderType) {
+        switch (shaderType) {
+        case this.gl.VERTEX_SHADER: return 'Vertex';
+        case this.gl.FRAGMENT_SHADER: return 'Fragment';
+        default: return shaderType;
+        }
+    }
+
+    compileShaderSource(source, shaderType) {
+        const shader = this.gl.createShader(shaderType);
+        this.gl.shaderSource(shader, source);
+        this.gl.compileShader(shader);
+        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
+            throw new Error(`Could not compile ${this.shaderTypeToString(shaderType)} shader: ${this.gl.getShaderInfoLog(shader)}`);
+        }
+        return shader;
+    }
+
+    linkShaderProgram(shaders) {
+        const program = this.gl.createProgram();
+        for (let shader of shaders) {
+            this.gl.attachShader(program, shader);
+        }
+        this.gl.linkProgram(program);
+        if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
+            throw new Error(`Could not link shader program: ${this.gl.getProgramInfoLog(program)}`);
+        }
+        return program;
+    }
+}
 
 class Renderer2D {
     cameraPos = new V2(0, 0);
@@ -181,11 +410,22 @@ class Renderer2D {
         this.context2d.stroke();
     }
 
-    setScale(scale) {
+    setViewport(width, height) {
+        const IDENTITY = new DOMMatrix();
+
+        const scale = Math.min(
+            width / DEFAULT_RESOLUTION.w,
+            height / DEFAULT_RESOLUTION.h,
+        );
+
         this.unitsPerPixel = 1 / scale;
 
         this.context2d.setTransform(IDENTITY);
         this.context2d.scale(scale, scale);
+    }
+
+    present() {
+        // Nothing to do. Everything is already presented by the 2D HTML canvas
     }
 
     background() {
@@ -202,12 +442,23 @@ class Renderer2D {
                     (cellY + (cellX % 2 == 0 ? 0.5 : 0)) * BACKGROUND_CELL_HEIGHT,
                 );
                 let points = BACKGROUND_CELL_POINTS.map(p => p.add(offset));
-                this.drawLine(points, BACKGROUND_COLOR);
+                this.drawLine(points, BACKGROUND_LINE_COLOR);
             }
         }
     }
 }
 
+const TRIANGLE_PAIR = 2;
+const TRIANGLE_VERTICIES = 3;
+const VEC2_COUNT = 2;
+const VEC2_X = 0;
+const VEC2_Y = 1;
+const RGBA_COUNT = 4;
+const RGBA_R = 0;
+const RGBA_G = 1;
+const RGBA_B = 2;
+const RGBA_A = 3;
+const DEFAULT_RESOLUTION = {w: 3840, h: 2160};
 const PLAYER_COLOR = Color.hex("#f43841");
 const PLAYER_SPEED = 1000;
 const PLAYER_RADIUS = 69;
@@ -237,7 +488,7 @@ const PARTICLE_LIFETIME_RANGE = [0, PARTICLE_MAX_LIFETIME];
 const MESSAGE_COLOR = Color.hex("#ffffff");
 const TRAIL_COOLDOWN = 1 / 60;
 const BACKGROUND_CELL_RADIUS = 120;
-const BACKGROUND_COLOR = Color.hex("#ffffff").withAlpha(0.5);
+const BACKGROUND_LINE_COLOR = Color.hex("#ffffff").withAlpha(0.5);
 const BACKGROUND_CELL_WIDTH = 1.5 * BACKGROUND_CELL_RADIUS;
 const BACKGROUND_CELL_HEIGHT = Math.sqrt(3) * BACKGROUND_CELL_RADIUS;
 const BACKGROUND_CELL_POINTS = (() => {
@@ -248,6 +499,7 @@ const BACKGROUND_CELL_POINTS = (() => {
     }
     return points;
 })();
+const CIRCLE_BATCH_CAPACITY = 1024;
 
 const directionMap = {
     'KeyS': new V2(0, 1.0),
@@ -639,6 +891,7 @@ class Game {
 
     render() {
         this.renderer.clear();
+
         this.renderer.background();
         this.player.render(this.renderer);
 
@@ -654,6 +907,8 @@ class Game {
         } else {
             this.tutorial.render(this.renderer);
         }
+
+        this.renderer.present();
     }
 
     spawnEnemy() {
@@ -701,16 +956,35 @@ class Game {
 }
 
 // Resolution at which the game scale will be 1 unit per pixel
-const DEFAULT_RESOLUTION = {w: 3840, h: 2160};
+
 
 let game = null;
 
 (() => {
+    const webgl = new URLSearchParams(document.location.search).has("webgl");
+
     const canvas = document.getElementById("game-canvas");
-    const context = canvas.getContext("2d");
+    const renderer = (() => {
+        if (webgl) {
+            const gl = canvas.getContext("webgl");
+            if (!gl) {
+                throw new Error(`Unable to initilize WebGL. Your browser probably does not support that.`);
+            }
+
+            const ext = gl.getExtension('ANGLE_instanced_arrays');
+            if (!ext) {
+                throw new Error(`Unable to initialize Instanced Arrays extension for WebGL. Your browser probably does not support that.`);
+            }
+
+            return new RendererWebGL(gl, ext);
+        } else {
+            return new Renderer2D(canvas.getContext("2d"));
+        }
+    })();
+
     let windowWasResized = true;
 
-    game = new Game(new Renderer2D(context));
+    game = new Game(renderer);
 
     // https://drafts.csswg.org/mediaqueries-4/#mf-interaction
     // https://patrickhlauke.github.io/touch/pointer-hover-any-pointer-any-hover/
@@ -729,11 +1003,7 @@ let game = null;
         if (windowWasResized) {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            const scale = Math.min(
-                window.innerWidth / DEFAULT_RESOLUTION.w,
-                window.innerHeight / DEFAULT_RESOLUTION.h,
-            );
-            game.renderer.setScale(scale);
+            game.renderer.setViewport(window.innerWidth, window.innerHeight);
             windowWasResized = false;
         }
 
