@@ -92,6 +92,7 @@ class RendererWebGL {
 precision mediump float;
 
 uniform vec2 resolution;
+uniform vec2 cameraPosition;
 
 attribute vec2 meshPosition;
 
@@ -104,7 +105,7 @@ varying vec2 vertexUV;
 
 vec2 camera_projection(vec2 position) {
     float scale = min(resolution.x / float(${DEFAULT_RESOLUTION.w}), resolution.y / float(${DEFAULT_RESOLUTION.h}));
-    return vec2(2.0 * (position.x * scale) / resolution.x, 2.0 * (position.y * scale) / resolution.y);
+    return 2.0 * scale * (position - cameraPosition) / resolution;
 }
 
 void main() {
@@ -140,6 +141,7 @@ void main() {
         gl.useProgram(this.program);
 
         this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
+        this.cameraPositionUniform = gl.getUniformLocation(this.program, 'cameraPosition');
 
         // Mesh Position
         {
@@ -240,6 +242,7 @@ void main() {
 
     update(dt) {
         this.cameraPos = this.cameraPos.add(this.cameraVel.scale(dt));
+        this.gl.uniform2f(this.cameraPositionUniform, this.cameraPos.x, this.cameraPos.y);
     }
 
     present() {
