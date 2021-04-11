@@ -103,12 +103,12 @@ varying vec4 vertexColor;
 varying vec2 vertexUV;
 
 vec2 camera_projection(vec2 position) {
-    return vec2(2.0 * position.x / resolution.x, 2.0 * position.y / resolution.y);
+    float scale = min(resolution.x / float(${DEFAULT_RESOLUTION.w}), resolution.y / float(${DEFAULT_RESOLUTION.h}));
+    return vec2(2.0 * (position.x * scale) / resolution.x, 2.0 * (position.y * scale) / resolution.y);
 }
 
 void main() {
-    float radius = circleRadius;
-    gl_Position = vec4(camera_projection(meshPosition * radius + circleCenter), 0.0, 1.0);
+    gl_Position = vec4(camera_projection(meshPosition * circleRadius + circleCenter), 0.0, 1.0);
     vertexColor = circleColor;
     vertexUV = meshPosition;
 }
