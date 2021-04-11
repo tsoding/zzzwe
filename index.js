@@ -114,10 +114,7 @@ function linkShaderProgram(gl, shaders) {
     return program;
 }
 
-class RendererWebGL {
-    cameraPos = new V2(0, 0);
-    cameraVel = new V2(0, 0);
-
+class CirclesProgram {
     vertexShaderSource = `#version 100
 precision mediump float;
 
@@ -160,10 +157,8 @@ void main() {
     constructor(gl, ext) {
         this.gl = gl;
         this.ext = ext;
-        this.circlesCount = 0;
 
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        this.circlesCount = 0;
 
         let vertexShader = compileShaderSource(gl, this.vertexShaderSource, gl.VERTEX_SHADER);
         let fragmentShader = compileShaderSource(gl, this.fragmentShaderSource, gl.FRAGMENT_SHADER);
@@ -260,43 +255,19 @@ void main() {
         }
     }
 
-    // RENDERER INTERFACE //////////////////////////////
+    use() {
+        this.gl.useProgram(this.program);
+    }
+
     setViewport(width, height) {
-        this.gl.viewport(0, 0, width, height);
         this.gl.uniform2f(this.resolutionUniform, width, height);
     }
 
-    setTarget(target) {
-        this.cameraVel = target.sub(this.cameraPos);
+    setCameraPosition(pos) {
+        this.gl.uniform2f(this.cameraPositionUniform, pos.x, pos.y);
     }
 
-    update(dt) {
-        this.cameraPos = this.cameraPos.add(this.cameraVel.scale(dt));
-        this.gl.uniform2f(this.cameraPositionUniform, this.cameraPos.x, this.cameraPos.y);
-    }
-
-    present() {
-        // TODO: bufferSubData should probably use subview of this Float32Array if that's even possible
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleCenterBuffer);
-        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleCenterBufferData);
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleRadiusBuffer);
-        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleRadiusBufferData);
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleColorBuffer);
-        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleColorBufferData);
-        this.ext.drawArraysInstancedANGLE(this.gl.TRIANGLES, 0, TRIANGLE_PAIR * TRIANGLE_VERTICIES, this.circlesCount);
-    }
-
-    clear() {
-        this.circlesCount = 0;
-        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-    }
-
-    background() {
-        // TODO: RendererWebGL.background() is not implemented
-    }
-
-    fillCircle(center, radius, color) {
+    pushCircle(center, radius, color) {
         if (this.circlesCount < CIRCLE_BATCH_CAPACITY) {
             this.circleCenterBufferData[this.circlesCount * VEC2_COUNT + VEC2_X] = center.x;
             this.circleCenterBufferData[this.circlesCount * VEC2_COUNT + VEC2_Y] = center.y;
@@ -310,6 +281,73 @@ void main() {
 
             this.circlesCount += 1;
         }
+    }
+
+    draw() {
+        // TODO: bufferSubData should probably use subview of this Float32Array if that's even possible
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleCenterBuffer);
+        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleCenterBufferData);
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleRadiusBuffer);
+        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleRadiusBufferData);
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleColorBuffer);
+        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleColorBufferData);
+        this.ext.drawArraysInstancedANGLE(this.gl.TRIANGLES, 0, TRIANGLE_PAIR * TRIANGLE_VERTICIES, this.circlesCount);
+    }
+
+    clear() {
+        this.circlesCount = 0;
+    }
+}
+
+class RendererWebGL {
+    cameraPos = new V2(0, 0);
+    cameraVel = new V2(0, 0);
+    resolution = new V2(0, 0);
+
+    constructor(gl, ext) {
+        this.gl = gl;
+        this.ext = ext;
+
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+        this.circlesProgram = new CirclesProgram(gl, ext);
+    }
+
+    // RENDERER INTERFACE //////////////////////////////
+    setViewport(width, height) {
+        this.gl.viewport(0, 0, width, height);
+        this.resolution.x = width;
+        this.resolution.y = height;
+    }
+
+    setTarget(target) {
+        this.cameraVel = target.sub(this.cameraPos);
+    }
+
+    update(dt) {
+        this.cameraPos = this.cameraPos.add(this.cameraVel.scale(dt));
+    }
+
+    present() {
+        this.circlesProgram.use();
+        this.circlesProgram.setCameraPosition(this.cameraPos);
+        this.circlesProgram.setViewport(this.resolution.x, this.resolution.y);
+        this.circlesProgram.draw();
+    }
+
+    clear() {
+        this.circlesProgram.clear();
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    }
+
+    background() {
+        // TODO: RendererWebGL.background() is not implemented
+    }
+
+    fillCircle(center, radius, color) {
+        this.circlesProgram.pushCircle(center, radius, color);
     }
 
     fillMessage(text, color) {
@@ -453,6 +491,7 @@ class Renderer2D {
 
 const TRIANGLE_PAIR = 2;
 const TRIANGLE_VERTICIES = 3;
+const QUAD_VERTICIES = 4;
 const VEC2_COUNT = 2;
 const VEC2_X = 0;
 const VEC2_Y = 1;
