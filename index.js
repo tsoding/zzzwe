@@ -154,11 +154,9 @@ void main() {
 }
 `;
 
-    constructor(gl, ext) {
+    constructor(gl, ext, vertexAttribs) {
         this.gl = gl;
         this.ext = ext;
-
-        this.circlesCount = 0;
 
         let vertexShader = compileShaderSource(gl, this.vertexShaderSource, gl.VERTEX_SHADER);
         let fragmentShader = compileShaderSource(gl, this.fragmentShaderSource, gl.FRAGMENT_SHADER);
@@ -167,6 +165,49 @@ void main() {
 
         this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
         this.cameraPositionUniform = gl.getUniformLocation(this.program, 'cameraPosition');
+
+        gl.bindAttribLocation(this.program, vertexAttribs['meshPosition'], 'meshPosition');
+        gl.bindAttribLocation(this.program, vertexAttribs['circleCenter'], 'circleCenter');
+        gl.bindAttribLocation(this.program, vertexAttribs['circleRadius'], 'circleRadius');
+        gl.bindAttribLocation(this.program, vertexAttribs['circleColor'], 'circleColor');
+    }
+
+    use() {
+        this.gl.useProgram(this.program);
+    }
+
+    setViewport(width, height) {
+        this.gl.uniform2f(this.resolutionUniform, width, height);
+    }
+
+    setCameraPosition(pos) {
+        this.gl.uniform2f(this.cameraPositionUniform, pos.x, pos.y);
+    }
+
+    draw(circlesCount) {
+        this.ext.drawArraysInstancedANGLE(this.gl.TRIANGLES, 0, TRIANGLE_PAIR * TRIANGLE_VERTICIES, circlesCount);
+    }
+}
+
+class RendererWebGL {
+    cameraPos = new V2(0, 0);
+    cameraVel = new V2(0, 0);
+    resolution = new V2(0, 0);
+
+    vertexAttribs = {
+        "meshPosition": 0,
+        "circleCenter": 1,
+        "circleRadius": 2,
+        "circleColor": 3,
+    };
+
+    constructor(gl, ext) {
+        this.gl = gl;
+        this.ext = ext;
+        this.circlesCount = 0;
+
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
         // Mesh Position
         {
@@ -186,7 +227,7 @@ void main() {
             gl.bindBuffer(gl.ARRAY_BUFFER, this.meshPositionBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, this.meshPositionBufferData, gl.STATIC_DRAW);
 
-            const meshPositionAttrib = gl.getAttribLocation(this.program, 'meshPosition');
+            const meshPositionAttrib = this.vertexAttribs['meshPosition'];
             gl.vertexAttribPointer(
                 meshPositionAttrib,
                 VEC2_COUNT,
@@ -204,7 +245,7 @@ void main() {
             gl.bindBuffer(gl.ARRAY_BUFFER, this.circleCenterBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, this.circleCenterBufferData, gl.DYNAMIC_DRAW);
 
-            const circleCenterAttrib = gl.getAttribLocation(this.program, 'circleCenter');
+            const circleCenterAttrib = this.vertexAttribs['circleCenter'];
             gl.vertexAttribPointer(
                 circleCenterAttrib,
                 VEC2_COUNT,
@@ -223,7 +264,7 @@ void main() {
             gl.bindBuffer(gl.ARRAY_BUFFER, this.circleRadiusBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, this.circleRadiusBufferData, gl.DYNAMIC_DRAW);
 
-            const circleRadiusAttrib = gl.getAttribLocation(this.program, 'circleRadius');
+            const circleRadiusAttrib = this.vertexAttribs['circleRadius'];
             gl.vertexAttribPointer(
                 circleRadiusAttrib,
                 1,
@@ -242,7 +283,7 @@ void main() {
             gl.bindBuffer(gl.ARRAY_BUFFER, this.circleColorBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, this.circleColorBufferData, gl.DYNAMIC_DRAW);
 
-            const circleColorAttrib = gl.getAttribLocation(this.program, 'circleColor');
+            const circleColorAttrib = this.vertexAttribs['circleColor'];
             gl.vertexAttribPointer(
                 circleColorAttrib,
                 RGBA_COUNT,
@@ -253,65 +294,8 @@ void main() {
             gl.enableVertexAttribArray(circleColorAttrib);
             ext.vertexAttribDivisorANGLE(circleColorAttrib, 1);
         }
-    }
 
-    use() {
-        this.gl.useProgram(this.program);
-    }
-
-    setViewport(width, height) {
-        this.gl.uniform2f(this.resolutionUniform, width, height);
-    }
-
-    setCameraPosition(pos) {
-        this.gl.uniform2f(this.cameraPositionUniform, pos.x, pos.y);
-    }
-
-    pushCircle(center, radius, color) {
-        if (this.circlesCount < CIRCLE_BATCH_CAPACITY) {
-            this.circleCenterBufferData[this.circlesCount * VEC2_COUNT + VEC2_X] = center.x;
-            this.circleCenterBufferData[this.circlesCount * VEC2_COUNT + VEC2_Y] = center.y;
-
-            this.circleRadiusBufferData[this.circlesCount] = radius;
-
-            this.circleColorBufferData[this.circlesCount * RGBA_COUNT + RGBA_R] = color.r;
-            this.circleColorBufferData[this.circlesCount * RGBA_COUNT + RGBA_G] = color.g;
-            this.circleColorBufferData[this.circlesCount * RGBA_COUNT + RGBA_B] = color.b;
-            this.circleColorBufferData[this.circlesCount * RGBA_COUNT + RGBA_A] = color.a;
-
-            this.circlesCount += 1;
-        }
-    }
-
-    draw() {
-        // TODO: bufferSubData should probably use subview of this Float32Array if that's even possible
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleCenterBuffer);
-        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleCenterBufferData);
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleRadiusBuffer);
-        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleRadiusBufferData);
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleColorBuffer);
-        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleColorBufferData);
-        this.ext.drawArraysInstancedANGLE(this.gl.TRIANGLES, 0, TRIANGLE_PAIR * TRIANGLE_VERTICIES, this.circlesCount);
-    }
-
-    clear() {
-        this.circlesCount = 0;
-    }
-}
-
-class RendererWebGL {
-    cameraPos = new V2(0, 0);
-    cameraVel = new V2(0, 0);
-    resolution = new V2(0, 0);
-
-    constructor(gl, ext) {
-        this.gl = gl;
-        this.ext = ext;
-
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-        this.circlesProgram = new CirclesProgram(gl, ext);
+        this.circlesProgram = new CirclesProgram(gl, ext, this.vertexAttribs);
     }
 
     // RENDERER INTERFACE //////////////////////////////
@@ -330,14 +314,28 @@ class RendererWebGL {
     }
 
     present() {
-        this.circlesProgram.use();
-        this.circlesProgram.setCameraPosition(this.cameraPos);
-        this.circlesProgram.setViewport(this.resolution.x, this.resolution.y);
-        this.circlesProgram.draw();
+        // Update All dynamic buffers
+        {
+            // TODO: bufferSubData should probably use subview of this Float32Array if that's even possible
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleCenterBuffer);
+            this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleCenterBufferData);
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleRadiusBuffer);
+            this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleRadiusBufferData);
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleColorBuffer);
+            this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleColorBufferData);
+        }
+
+        // Call the Circles Program
+        {
+            this.circlesProgram.use();
+            this.circlesProgram.setCameraPosition(this.cameraPos);
+            this.circlesProgram.setViewport(this.resolution.x, this.resolution.y);
+            this.circlesProgram.draw(this.circlesCount);
+        }
     }
 
     clear() {
-        this.circlesProgram.clear();
+        this.circlesCount = 0;
         this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     }
@@ -347,7 +345,19 @@ class RendererWebGL {
     }
 
     fillCircle(center, radius, color) {
-        this.circlesProgram.pushCircle(center, radius, color);
+        if (this.circlesCount < CIRCLE_BATCH_CAPACITY) {
+            this.circleCenterBufferData[this.circlesCount * VEC2_COUNT + VEC2_X] = center.x;
+            this.circleCenterBufferData[this.circlesCount * VEC2_COUNT + VEC2_Y] = center.y;
+
+            this.circleRadiusBufferData[this.circlesCount] = radius;
+
+            this.circleColorBufferData[this.circlesCount * RGBA_COUNT + RGBA_R] = color.r;
+            this.circleColorBufferData[this.circlesCount * RGBA_COUNT + RGBA_G] = color.g;
+            this.circleColorBufferData[this.circlesCount * RGBA_COUNT + RGBA_B] = color.b;
+            this.circleColorBufferData[this.circlesCount * RGBA_COUNT + RGBA_A] = color.a;
+
+            this.circlesCount += 1;
+        }
     }
 
     fillMessage(text, color) {
