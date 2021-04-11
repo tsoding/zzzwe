@@ -114,6 +114,65 @@ function linkShaderProgram(gl, shaders) {
     return program;
 }
 
+class BackgroundProgram {
+    vertexShaderSource = `#version 100
+precision mediump float;
+
+attribute vec2 meshPosition;
+
+varying vec2 position;
+
+void main() {
+    gl_Position = vec4(meshPosition, 0.0, 1.0);
+    position = (meshPosition + vec2(1.0)) / 2.0;
+}
+`
+
+    fragmentShaderSource = `#version 100
+precision mediump float;
+
+uniform vec2 resolution;
+uniform vec2 cameraPosition;
+
+varying vec2 position;
+
+void main() {
+    vec2 coord = position * resolution;
+    gl_FragColor = vec4(0.25, 0.0, 0.0, 1.0);
+}
+`
+
+    constructor(gl, vertexAttribs) {
+        this.gl = gl;
+
+        let vertexShader = compileShaderSource(gl, this.vertexShaderSource, gl.VERTEX_SHADER);
+        let fragmentShader = compileShaderSource(gl, this.fragmentShaderSource, gl.FRAGMENT_SHADER);
+        this.program = linkShaderProgram(gl, [vertexShader, fragmentShader]);
+        gl.useProgram(this.program);
+
+        this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
+        this.cameraPositionUniform = gl.getUniformLocation(this.program, 'cameraPosition');
+
+        gl.bindAttribLocation(this.program, vertexAttribs['meshPosition'], 'meshPosition');
+    }
+
+    use() {
+        this.gl.useProgram(this.program);
+    }
+
+    setViewport(width, height) {
+        this.gl.uniform2f(this.resolutionUniform, width, height);
+    }
+
+    setCameraPosition(pos) {
+        this.gl.uniform2f(this.cameraPositionUniform, pos.x, pos.y);
+    }
+
+    draw(circlesCount) {
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, TRIANGLE_PAIR * TRIANGLE_VERTICIES);
+    }
+}
+
 class CirclesProgram {
     vertexShaderSource = `#version 100
 precision mediump float;
@@ -295,6 +354,7 @@ class RendererWebGL {
             ext.vertexAttribDivisorANGLE(circleColorAttrib, 1);
         }
 
+        this.backgroundProgram = new BackgroundProgram(gl, this.vertexAttribs);
         this.circlesProgram = new CirclesProgram(gl, ext, this.vertexAttribs);
     }
 
@@ -323,6 +383,14 @@ class RendererWebGL {
             this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleRadiusBufferData);
             this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleColorBuffer);
             this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleColorBufferData);
+        }
+
+        // Call the Background Program
+        {
+            this.backgroundProgram.use();
+            this.backgroundProgram.setCameraPosition(this.cameraPos);
+            this.backgroundProgram.setViewport(this.resolution.x, this.resolution.y);
+            this.backgroundProgram.draw(this.circlesCount);
         }
 
         // Call the Circles Program
