@@ -84,6 +84,36 @@ class V2 {
     }
 }
 
+function shaderTypeToString(gl, shaderType) {
+    switch (shaderType) {
+    case gl.VERTEX_SHADER: return 'Vertex';
+    case gl.FRAGMENT_SHADER: return 'Fragment';
+    default: return shaderType;
+    }
+}
+
+function compileShaderSource(gl, source, shaderType) {
+    const shader = gl.createShader(shaderType);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        throw new Error(`Could not compile ${this.shaderTypeToString(shaderType)} shader: ${gl.getShaderInfoLog(shader)}`);
+    }
+    return shader;
+}
+
+function linkShaderProgram(gl, shaders) {
+    const program = gl.createProgram();
+    for (let shader of shaders) {
+        gl.attachShader(program, shader);
+    }
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        throw new Error(`Could not link shader program: ${gl.getProgramInfoLog(program)}`);
+    }
+    return program;
+}
+
 class RendererWebGL {
     cameraPos = new V2(0, 0);
     cameraVel = new V2(0, 0);
@@ -135,9 +165,9 @@ void main() {
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-        let vertexShader = this.compileShaderSource(this.vertexShaderSource, gl.VERTEX_SHADER);
-        let fragmentShader = this.compileShaderSource(this.fragmentShaderSource, gl.FRAGMENT_SHADER);
-        this.program = this.linkShaderProgram([vertexShader, fragmentShader]);
+        let vertexShader = compileShaderSource(gl, this.vertexShaderSource, gl.VERTEX_SHADER);
+        let fragmentShader = compileShaderSource(gl, this.fragmentShaderSource, gl.FRAGMENT_SHADER);
+        this.program = linkShaderProgram(gl, [vertexShader, fragmentShader]);
         gl.useProgram(this.program);
 
         this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
@@ -286,36 +316,6 @@ void main() {
         // TODO: RendererWebGL.fillMessage() is not implemented
     }
     ////////////////////////////////////////////////////////////
-
-    shaderTypeToString(shaderType) {
-        switch (shaderType) {
-        case this.gl.VERTEX_SHADER: return 'Vertex';
-        case this.gl.FRAGMENT_SHADER: return 'Fragment';
-        default: return shaderType;
-        }
-    }
-
-    compileShaderSource(source, shaderType) {
-        const shader = this.gl.createShader(shaderType);
-        this.gl.shaderSource(shader, source);
-        this.gl.compileShader(shader);
-        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-            throw new Error(`Could not compile ${this.shaderTypeToString(shaderType)} shader: ${this.gl.getShaderInfoLog(shader)}`);
-        }
-        return shader;
-    }
-
-    linkShaderProgram(shaders) {
-        const program = this.gl.createProgram();
-        for (let shader of shaders) {
-            this.gl.attachShader(program, shader);
-        }
-        this.gl.linkProgram(program);
-        if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-            throw new Error(`Could not link shader program: ${this.gl.getProgramInfoLog(program)}`);
-        }
-        return program;
-    }
 }
 
 class Renderer2D {
