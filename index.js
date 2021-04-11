@@ -133,20 +133,22 @@ precision mediump float;
 
 uniform vec2 resolution;
 uniform vec2 cameraPosition;
+uniform float time;
 
 varying vec2 position;
 
 void main() {
-    float gridSize = 300.0;
-    float radius = gridSize * 0.30;
+    float gridSize = 2000.0;
+    float radius = gridSize * 0.4;
 
     float scale = min(resolution.x / float(${DEFAULT_RESOLUTION.w}), resolution.y / float(${DEFAULT_RESOLUTION.h}));
-    vec2 coord = (position * resolution * 0.5 + cameraPosition) * scale;
+    vec2 coord = (position * resolution * 0.5 / scale + cameraPosition);
     vec2 cell = floor(coord / gridSize);
     vec2 center = cell * gridSize + vec2(gridSize * 0.5);
 
     if (length(center - coord) < radius) {
-        gl_FragColor = vec4(0.1, 0.1, 0.1, 1.0);
+        float value = (sin(cell.x + cell.y + time) + 1.0) / 2.0 * 0.1;
+        gl_FragColor = vec4(value, value, value, 1.0);
     } else {
         gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
     }
@@ -163,6 +165,7 @@ void main() {
 
         this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
         this.cameraPositionUniform = gl.getUniformLocation(this.program, 'cameraPosition');
+        this.timeUniform = gl.getUniformLocation(this.program, 'time');
 
         gl.bindAttribLocation(this.program, vertexAttribs['meshPosition'], 'meshPosition');
     }
@@ -177,6 +180,10 @@ void main() {
 
     setCameraPosition(pos) {
         this.gl.uniform2f(this.cameraPositionUniform, pos.x, pos.y);
+    }
+
+    setTimestamp(timestamp) {
+        this.gl.uniform1f(this.timeUniform, timestamp);
     }
 
     draw(circlesCount) {
@@ -370,6 +377,10 @@ class RendererWebGL {
     }
 
     // RENDERER INTERFACE //////////////////////////////
+    setTimestamp(timestamp) {
+        this.timestamp = timestamp;
+    }
+
     setViewport(width, height) {
         this.gl.viewport(0, 0, width, height);
         this.resolution.x = width;
@@ -401,6 +412,7 @@ class RendererWebGL {
             this.backgroundProgram.use();
             this.backgroundProgram.setCameraPosition(this.cameraPos);
             this.backgroundProgram.setViewport(this.resolution.x, this.resolution.y);
+            this.backgroundProgram.setTimestamp(this.timestamp);
             this.backgroundProgram.draw(this.circlesCount);
         }
 
@@ -556,6 +568,10 @@ class Renderer2D {
 
     present() {
         // Nothing to do. Everything is already presented by the 2D HTML canvas
+    }
+
+    setTimestamp(timestamp) {
+        // Nothing to do. We don't use absolute value of the time to animate anything in here.
     }
 
     background() {
@@ -1130,6 +1146,8 @@ let game = null;
         }
         const dt = (timestamp - start) * 0.001;
         start = timestamp;
+
+        game.renderer.setTimestamp(timestamp * 0.001);
 
         if (windowWasResized) {
             canvas.width = window.innerWidth;
