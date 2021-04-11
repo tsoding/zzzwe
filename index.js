@@ -124,7 +124,7 @@ varying vec2 position;
 
 void main() {
     gl_Position = vec4(meshPosition, 0.0, 1.0);
-    position = (meshPosition + vec2(1.0)) / 2.0;
+    position = meshPosition;
 }
 `
 
@@ -137,8 +137,19 @@ uniform vec2 cameraPosition;
 varying vec2 position;
 
 void main() {
-    vec2 coord = position * resolution;
-    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    float gridSize = 300.0;
+    float radius = gridSize * 0.30;
+
+    float scale = min(resolution.x / float(${DEFAULT_RESOLUTION.w}), resolution.y / float(${DEFAULT_RESOLUTION.h}));
+    vec2 coord = (position * resolution * 0.5 + cameraPosition) * scale;
+    vec2 cell = floor(coord / gridSize);
+    vec2 center = cell * gridSize + vec2(gridSize * 0.5);
+
+    if (length(center - coord) < radius) {
+        gl_FragColor = vec4(0.1, 0.1, 0.1, 1.0);
+    } else {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    }
 }
 `
 
