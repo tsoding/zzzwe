@@ -84,10 +84,96 @@ class V2 {
     }
 }
 
-class RendererWebGL {
-    cameraPos = new V2(0, 0);
-    cameraVel = new V2(0, 0);
+function shaderTypeToString(gl, shaderType) {
+    switch (shaderType) {
+    case gl.VERTEX_SHADER: return 'Vertex';
+    case gl.FRAGMENT_SHADER: return 'Fragment';
+    default: return shaderType;
+    }
+}
 
+function compileShaderSource(gl, source, shaderType) {
+    const shader = gl.createShader(shaderType);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        throw new Error(`Could not compile ${this.shaderTypeToString(shaderType)} shader: ${gl.getShaderInfoLog(shader)}`);
+    }
+    return shader;
+}
+
+function linkShaderProgram(gl, shaders) {
+    const program = gl.createProgram();
+    for (let shader of shaders) {
+        gl.attachShader(program, shader);
+    }
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        throw new Error(`Could not link shader program: ${gl.getProgramInfoLog(program)}`);
+    }
+    return program;
+}
+
+class BackgroundProgram {
+    vertexShaderSource = `#version 100
+precision mediump float;
+
+attribute vec2 meshPosition;
+
+varying vec2 position;
+
+void main() {
+    gl_Position = vec4(meshPosition, 0.0, 1.0);
+    position = (meshPosition + vec2(1.0)) / 2.0;
+}
+`
+
+    fragmentShaderSource = `#version 100
+precision mediump float;
+
+uniform vec2 resolution;
+uniform vec2 cameraPosition;
+
+varying vec2 position;
+
+void main() {
+    vec2 coord = position * resolution;
+    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+}
+`
+
+    constructor(gl, vertexAttribs) {
+        this.gl = gl;
+
+        let vertexShader = compileShaderSource(gl, this.vertexShaderSource, gl.VERTEX_SHADER);
+        let fragmentShader = compileShaderSource(gl, this.fragmentShaderSource, gl.FRAGMENT_SHADER);
+        this.program = linkShaderProgram(gl, [vertexShader, fragmentShader]);
+        gl.useProgram(this.program);
+
+        this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
+        this.cameraPositionUniform = gl.getUniformLocation(this.program, 'cameraPosition');
+
+        gl.bindAttribLocation(this.program, vertexAttribs['meshPosition'], 'meshPosition');
+    }
+
+    use() {
+        this.gl.useProgram(this.program);
+    }
+
+    setViewport(width, height) {
+        this.gl.uniform2f(this.resolutionUniform, width, height);
+    }
+
+    setCameraPosition(pos) {
+        this.gl.uniform2f(this.cameraPositionUniform, pos.x, pos.y);
+    }
+
+    draw(circlesCount) {
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, TRIANGLE_PAIR * TRIANGLE_VERTICIES);
+    }
+}
+
+class CirclesProgram {
     vertexShaderSource = `#version 100
 precision mediump float;
 
@@ -127,6 +213,53 @@ void main() {
 }
 `;
 
+    constructor(gl, ext, vertexAttribs) {
+        this.gl = gl;
+        this.ext = ext;
+
+        let vertexShader = compileShaderSource(gl, this.vertexShaderSource, gl.VERTEX_SHADER);
+        let fragmentShader = compileShaderSource(gl, this.fragmentShaderSource, gl.FRAGMENT_SHADER);
+        this.program = linkShaderProgram(gl, [vertexShader, fragmentShader]);
+        gl.useProgram(this.program);
+
+        this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
+        this.cameraPositionUniform = gl.getUniformLocation(this.program, 'cameraPosition');
+
+        gl.bindAttribLocation(this.program, vertexAttribs['meshPosition'], 'meshPosition');
+        gl.bindAttribLocation(this.program, vertexAttribs['circleCenter'], 'circleCenter');
+        gl.bindAttribLocation(this.program, vertexAttribs['circleRadius'], 'circleRadius');
+        gl.bindAttribLocation(this.program, vertexAttribs['circleColor'], 'circleColor');
+    }
+
+    use() {
+        this.gl.useProgram(this.program);
+    }
+
+    setViewport(width, height) {
+        this.gl.uniform2f(this.resolutionUniform, width, height);
+    }
+
+    setCameraPosition(pos) {
+        this.gl.uniform2f(this.cameraPositionUniform, pos.x, pos.y);
+    }
+
+    draw(circlesCount) {
+        this.ext.drawArraysInstancedANGLE(this.gl.TRIANGLES, 0, TRIANGLE_PAIR * TRIANGLE_VERTICIES, circlesCount);
+    }
+}
+
+class RendererWebGL {
+    cameraPos = new V2(0, 0);
+    cameraVel = new V2(0, 0);
+    resolution = new V2(0, 0);
+
+    vertexAttribs = {
+        "meshPosition": 0,
+        "circleCenter": 1,
+        "circleRadius": 2,
+        "circleColor": 3,
+    };
+
     constructor(gl, ext) {
         this.gl = gl;
         this.ext = ext;
@@ -134,14 +267,6 @@ void main() {
 
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-        let vertexShader = this.compileShaderSource(this.vertexShaderSource, gl.VERTEX_SHADER);
-        let fragmentShader = this.compileShaderSource(this.fragmentShaderSource, gl.FRAGMENT_SHADER);
-        this.program = this.linkShaderProgram([vertexShader, fragmentShader]);
-        gl.useProgram(this.program);
-
-        this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
-        this.cameraPositionUniform = gl.getUniformLocation(this.program, 'cameraPosition');
 
         // Mesh Position
         {
@@ -161,7 +286,7 @@ void main() {
             gl.bindBuffer(gl.ARRAY_BUFFER, this.meshPositionBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, this.meshPositionBufferData, gl.STATIC_DRAW);
 
-            const meshPositionAttrib = gl.getAttribLocation(this.program, 'meshPosition');
+            const meshPositionAttrib = this.vertexAttribs['meshPosition'];
             gl.vertexAttribPointer(
                 meshPositionAttrib,
                 VEC2_COUNT,
@@ -179,7 +304,7 @@ void main() {
             gl.bindBuffer(gl.ARRAY_BUFFER, this.circleCenterBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, this.circleCenterBufferData, gl.DYNAMIC_DRAW);
 
-            const circleCenterAttrib = gl.getAttribLocation(this.program, 'circleCenter');
+            const circleCenterAttrib = this.vertexAttribs['circleCenter'];
             gl.vertexAttribPointer(
                 circleCenterAttrib,
                 VEC2_COUNT,
@@ -198,7 +323,7 @@ void main() {
             gl.bindBuffer(gl.ARRAY_BUFFER, this.circleRadiusBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, this.circleRadiusBufferData, gl.DYNAMIC_DRAW);
 
-            const circleRadiusAttrib = gl.getAttribLocation(this.program, 'circleRadius');
+            const circleRadiusAttrib = this.vertexAttribs['circleRadius'];
             gl.vertexAttribPointer(
                 circleRadiusAttrib,
                 1,
@@ -217,7 +342,7 @@ void main() {
             gl.bindBuffer(gl.ARRAY_BUFFER, this.circleColorBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, this.circleColorBufferData, gl.DYNAMIC_DRAW);
 
-            const circleColorAttrib = gl.getAttribLocation(this.program, 'circleColor');
+            const circleColorAttrib = this.vertexAttribs['circleColor'];
             gl.vertexAttribPointer(
                 circleColorAttrib,
                 RGBA_COUNT,
@@ -228,12 +353,16 @@ void main() {
             gl.enableVertexAttribArray(circleColorAttrib);
             ext.vertexAttribDivisorANGLE(circleColorAttrib, 1);
         }
+
+        this.backgroundProgram = new BackgroundProgram(gl, this.vertexAttribs);
+        this.circlesProgram = new CirclesProgram(gl, ext, this.vertexAttribs);
     }
 
     // RENDERER INTERFACE //////////////////////////////
     setViewport(width, height) {
         this.gl.viewport(0, 0, width, height);
-        this.gl.uniform2f(this.resolutionUniform, width, height);
+        this.resolution.x = width;
+        this.resolution.y = height;
     }
 
     setTarget(target) {
@@ -242,18 +371,35 @@ void main() {
 
     update(dt) {
         this.cameraPos = this.cameraPos.add(this.cameraVel.scale(dt));
-        this.gl.uniform2f(this.cameraPositionUniform, this.cameraPos.x, this.cameraPos.y);
     }
 
     present() {
-        // TODO: bufferSubData should probably use subview of this Float32Array if that's even possible
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleCenterBuffer);
-        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleCenterBufferData);
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleRadiusBuffer);
-        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleRadiusBufferData);
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleColorBuffer);
-        this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleColorBufferData);
-        this.ext.drawArraysInstancedANGLE(this.gl.TRIANGLES, 0, TRIANGLE_PAIR * TRIANGLE_VERTICIES, this.circlesCount);
+        // Update All dynamic buffers
+        {
+            // TODO: bufferSubData should probably use subview of this Float32Array if that's even possible
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleCenterBuffer);
+            this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleCenterBufferData);
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleRadiusBuffer);
+            this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleRadiusBufferData);
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.circleColorBuffer);
+            this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.circleColorBufferData);
+        }
+
+        // Call the Background Program
+        {
+            this.backgroundProgram.use();
+            this.backgroundProgram.setCameraPosition(this.cameraPos);
+            this.backgroundProgram.setViewport(this.resolution.x, this.resolution.y);
+            this.backgroundProgram.draw(this.circlesCount);
+        }
+
+        // Call the Circles Program
+        {
+            this.circlesProgram.use();
+            this.circlesProgram.setCameraPosition(this.cameraPos);
+            this.circlesProgram.setViewport(this.resolution.x, this.resolution.y);
+            this.circlesProgram.draw(this.circlesCount);
+        }
     }
 
     clear() {
@@ -286,36 +432,6 @@ void main() {
         // TODO: RendererWebGL.fillMessage() is not implemented
     }
     ////////////////////////////////////////////////////////////
-
-    shaderTypeToString(shaderType) {
-        switch (shaderType) {
-        case this.gl.VERTEX_SHADER: return 'Vertex';
-        case this.gl.FRAGMENT_SHADER: return 'Fragment';
-        default: return shaderType;
-        }
-    }
-
-    compileShaderSource(source, shaderType) {
-        const shader = this.gl.createShader(shaderType);
-        this.gl.shaderSource(shader, source);
-        this.gl.compileShader(shader);
-        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-            throw new Error(`Could not compile ${this.shaderTypeToString(shaderType)} shader: ${this.gl.getShaderInfoLog(shader)}`);
-        }
-        return shader;
-    }
-
-    linkShaderProgram(shaders) {
-        const program = this.gl.createProgram();
-        for (let shader of shaders) {
-            this.gl.attachShader(program, shader);
-        }
-        this.gl.linkProgram(program);
-        if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-            throw new Error(`Could not link shader program: ${this.gl.getProgramInfoLog(program)}`);
-        }
-        return program;
-    }
 }
 
 class Renderer2D {
@@ -453,6 +569,7 @@ class Renderer2D {
 
 const TRIANGLE_PAIR = 2;
 const TRIANGLE_VERTICIES = 3;
+const QUAD_VERTICIES = 4;
 const VEC2_COUNT = 2;
 const VEC2_X = 0;
 const VEC2_Y = 1;
