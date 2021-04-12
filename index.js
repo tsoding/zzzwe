@@ -175,6 +175,12 @@ void main() {
     }
 
     setViewport(width, height) {
+        const scale = Math.min(
+            width / DEFAULT_RESOLUTION.w,
+            height / DEFAULT_RESOLUTION.h,
+        );
+
+        this.unitsPerPixel = 1 / scale;
         this.gl.uniform2f(this.resolutionUniform, width, height);
     }
 
@@ -270,6 +276,7 @@ class RendererWebGL {
     cameraPos = new V2(0, 0);
     cameraVel = new V2(0, 0);
     resolution = new V2(0, 0);
+    unitsPerPixel = 1.0;
 
     vertexAttribs = {
         "meshPosition": 0,
@@ -454,6 +461,14 @@ class RendererWebGL {
     fillMessage(text, color) {
         // TODO: RendererWebGL.fillMessage() is not implemented
     }
+
+    screenToWorld(point) {
+        return point
+            .sub(this.resolution.scale(0.5))
+            .scale(this.unitsPerPixel)
+            .add(this.cameraPos);
+    }
+
     ////////////////////////////////////////////////////////////
 }
 
