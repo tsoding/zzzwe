@@ -962,7 +962,7 @@ class Game {
     mouseMove(event) {
         if (!this.paused && this.player.shooting) {
             const mousePos = new V2(event.offsetX, event.offsetY);
-            this.player.target = this.camera.screenToWorld(mousePos);
+            this.player.target = this.renderer.screenToWorld(mousePos);
         }
     }
 
