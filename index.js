@@ -124,7 +124,7 @@ varying vec2 position;
 
 void main() {
     gl_Position = vec4(meshPosition, 0.0, 1.0);
-    position = meshPosition;
+    position = vec2(meshPosition.x, -meshPosition.y);
 }
 `
 
@@ -215,7 +215,8 @@ varying vec2 vertexUV;
 
 vec2 camera_projection(vec2 position) {
     float scale = min(resolution.x / float(${DEFAULT_RESOLUTION.w}), resolution.y / float(${DEFAULT_RESOLUTION.h}));
-    return 2.0 * scale * (position - cameraPosition) / resolution;
+    vec2 result = 2.0 * scale * (position - cameraPosition) / resolution;
+    return vec2(result.x, -result.y);
 }
 
 void main() {
