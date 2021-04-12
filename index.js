@@ -686,7 +686,7 @@ const BACKGROUND_CELL_POINTS = (() => {
     }
     return points;
 })();
-const CIRCLE_BATCH_CAPACITY = 1024;
+const CIRCLE_BATCH_CAPACITY = 1024 * 10;
 
 const directionMap = {
     'KeyS': new V2(0, 1.0),
