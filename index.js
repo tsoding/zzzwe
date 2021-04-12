@@ -409,6 +409,13 @@ class RendererWebGL {
         this.gl.viewport(0, 0, width, height);
         this.resolution.x = width;
         this.resolution.y = height;
+
+        const scale = Math.min(
+            width / DEFAULT_RESOLUTION.w,
+            height / DEFAULT_RESOLUTION.h,
+        );
+
+        this.unitsPerPixel = 1 / scale;
     }
 
     setTarget(target) {
