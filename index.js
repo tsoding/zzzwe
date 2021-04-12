@@ -228,12 +228,23 @@ void main() {
     fragmentShaderSource =`#version 100
 precision mediump float;
 
+uniform float grayness;
+
 varying vec4 vertexColor;
 varying vec2 vertexUV;
 
+vec4 grayScale(vec4 color, float t) {
+    float v = (color.x + color.y + color.z) / 3.0;
+    return vec4(
+        mix(color.x, v, t),
+        mix(color.y, v, t),
+        mix(color.z, v, t),
+        color.w);
+}
+
 void main() {
     vec4 color = vertexColor;
-    gl_FragColor = length(vertexUV) < 1.0 ? color : vec4(0.0);
+    gl_FragColor = length(vertexUV) < 1.0 ? grayScale(color, grayness) : vec4(0.0);
 }
 `;
 
@@ -248,6 +259,7 @@ void main() {
 
         this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
         this.cameraPositionUniform = gl.getUniformLocation(this.program, 'cameraPosition');
+        this.graynessUniform = gl.getUniformLocation(this.program, 'grayness');
 
         gl.bindAttribLocation(this.program, vertexAttribs['meshPosition'], 'meshPosition');
         gl.bindAttribLocation(this.program, vertexAttribs['circleCenter'], 'circleCenter');
@@ -259,12 +271,17 @@ void main() {
         this.gl.useProgram(this.program);
     }
 
+    // TODO: Rename Renderer(WebGL|2D).setViewport() to setResolution()
     setViewport(width, height) {
         this.gl.uniform2f(this.resolutionUniform, width, height);
     }
 
     setCameraPosition(pos) {
         this.gl.uniform2f(this.cameraPositionUniform, pos.x, pos.y);
+    }
+
+    setGrayness(grayness) {
+        this.gl.uniform1f(this.graynessUniform, grayness);
     }
 
     draw(circlesCount) {
@@ -428,6 +445,7 @@ class RendererWebGL {
             this.circlesProgram.use();
             this.circlesProgram.setCameraPosition(this.cameraPos);
             this.circlesProgram.setViewport(this.resolution.x, this.resolution.y);
+            this.circlesProgram.setGrayness(this.grayness);
             this.circlesProgram.draw(this.circlesCount);
         }
     }
