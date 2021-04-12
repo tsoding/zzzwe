@@ -1013,7 +1013,7 @@ class Game {
                     if (enemy.pos.dist(bullet.pos) <= BULLET_RADIUS + ENEMY_RADIUS) {
                         this.score += ENEMY_KILL_SCORE;
                         this.player.heal(ENEMY_KILL_HEAL);
-                        this.player.accuracy += 1;
+                        if (bullet.lifetime > 0.0) this.player.accuracy += 1;
                         bullet.lifetime = 0.0;
                         enemy.ded = true;
                         particleBurst(this.particles, enemy.pos, ENEMY_COLOR);
