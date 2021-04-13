@@ -832,7 +832,8 @@ const LOCAL_STORAGE_TUTORIAL = "tutorial";
 
 class Tutorial {
     constructor() {
-        this.state = window.localStorage.getItem(LOCAL_STORAGE_TUTORIAL) ?? 0;
+        const state = parseInt(window.localStorage.getItem(LOCAL_STORAGE_TUTORIAL));
+        this.state = !isNaN(state) && 0 <= state && state < TutorialMessages.length ? state : 0;
         this.popup = new TutorialPopup(TutorialMessages[this.state]);
         this.popup.fadeIn();
         this.popup.onFadedOut = () => {
