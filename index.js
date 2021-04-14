@@ -127,8 +127,7 @@ class BitmapFontProgram {
 precision mediump float;
 
 attribute vec2 meshPosition;
-attribute float letterIndex;
-attribute float letter;
+attribute vec2 letterSlot;
 
 uniform vec2 resolution;
 uniform float messageScale;
@@ -144,6 +143,9 @@ varying vec2 uv;
 #define FONT_CHAR_HEIGHT (FONT_SHEET_HEIGHT / FONT_SHEET_ROWS)
 
 void main() {
+    float letterCode = letterSlot.x;
+    float letterCol = letterSlot.y;
+
     float messageWidth = letterCount * float(FONT_CHAR_WIDTH) * messageScale;
     float messageHeight = float(FONT_CHAR_HEIGHT) * messageScale;
     vec2 messagePosition = vec2(messageWidth, messageHeight) * -0.5;
@@ -152,11 +154,11 @@ void main() {
     vec2 screenPosition = 
         meshPositionUV * vec2(float(FONT_CHAR_WIDTH), float(FONT_CHAR_HEIGHT)) * messageScale +
         messagePosition +
-        vec2(float(FONT_CHAR_WIDTH) * messageScale * letterIndex, 0.0);
+        vec2(float(FONT_CHAR_WIDTH) * messageScale * letterCol, 0.0);
 
     gl_Position = vec4(2.0 * screenPosition / resolution, 0.0, 1.0);
 
-    float charIndex = letter - 32.0;
+    float charIndex = letterCode - 32.0;
     float charU = (floor(mod(charIndex, float(FONT_SHEET_COLS))) + meshPositionUV.x) * float(FONT_CHAR_WIDTH) / float(FONT_SHEET_WIDTH);
     float charV = (floor(charIndex / float(FONT_SHEET_COLS)) + (1.0 - meshPositionUV.y)) * float(FONT_CHAR_HEIGHT) / float(FONT_SHEET_HEIGHT);
     uv = vec2(charU, charV);
@@ -405,8 +407,7 @@ class RendererWebGL {
         "circleCenter": 1,
         "circleRadius": 2,
         "circleColor": 3,
-        "letter": 4,
-        "letterIndex": 5,
+        "letterSlot": 4,
     };
 
     constructor(gl, ext) {
@@ -525,47 +526,24 @@ class RendererWebGL {
         }
 
 
-        // Letter
+        // Letter Slot
         {
-            this.letterBufferData = new Float32Array(LETTERS_CAPACITY);
+            this.letterSlotBufferData = new Float32Array(LETTER_SLOTS_CAPACITY * VEC2_COUNT);
 
-            this.letterBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.letterBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, this.letterBufferData, gl.DYNAMIC_DRAW);
+            this.letterSlotBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.letterSlotBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, this.letterSlotBufferData, gl.DYNAMIC_DRAW);
             
-            const letterAttrib = this.vertexAttribs['letter'];
+            const letterSlotAttrib = this.vertexAttribs['letterSlot'];
             gl.vertexAttribPointer(
-                letterAttrib,
-                1,
+                letterSlotAttrib,
+                LETTER_SLOT_COUNT,
                 gl.FLOAT,
                 false,
                 0,
                 0);
-            gl.enableVertexAttribArray(letterAttrib);
-            ext.vertexAttribDivisorANGLE(letterAttrib, 1);
-        }
-
-        // Letter Index
-        {
-            this.letterIndexBufferData = new Float32Array(LETTERS_CAPACITY);
-            for (let i = 0; i < LETTERS_CAPACITY; ++i) {
-                this.letterIndexBufferData[i] = i;
-            }
-
-            this.letterIndexBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.letterIndexBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, this.letterIndexBufferData, gl.STATIC_DRAW);
-            
-            const letterIndexAttrib = this.vertexAttribs['letterIndex'];
-            gl.vertexAttribPointer(
-                letterIndexAttrib,
-                1,
-                gl.FLOAT,
-                false,
-                0,
-                0);
-            gl.enableVertexAttribArray(letterIndexAttrib);
-            ext.vertexAttribDivisorANGLE(letterIndexAttrib, 1);
+            gl.enableVertexAttribArray(letterSlotAttrib);
+            ext.vertexAttribDivisorANGLE(letterSlotAttrib, 1);
         }
 
         this.backgroundProgram = new BackgroundProgram(gl, this.vertexAttribs);
@@ -636,11 +614,12 @@ class RendererWebGL {
             this.bitmapFontProgram.setTimestamp(this.timestamp);
 
             for (let [text, color] of this.messages) {
-                for (let i = 0; i < text.length && i < this.letterBufferData.length; ++i) {
-                    this.letterBufferData[i] = text.charCodeAt(i);
+                for (let i = 0; i < text.length && i < this.letterSlotBufferData.length; ++i) {
+                    this.letterSlotBufferData[i * LETTER_SLOT_COUNT + LETTER_SLOT_CODE] = text.charCodeAt(i);
+                    this.letterSlotBufferData[i * LETTER_SLOT_COUNT + LETTER_SLOT_COL] = i;
                 }
-                this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.letterBuffer);
-                this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.letterBufferData);
+                this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.letterSlotBuffer);
+                this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.letterSlotBufferData);
 
                 this.bitmapFontProgram.setColor(color);
                 this.bitmapFontProgram.draw(text.length);
@@ -879,7 +858,12 @@ const BACKGROUND_CELL_POINTS = (() => {
     return points;
 })();
 const CIRCLE_BATCH_CAPACITY = 1024 * 10;
-const LETTERS_CAPACITY = 1024;
+const LETTER_SLOTS_CAPACITY = 1024;
+const LETTER_SLOT_COUNT = VEC2_COUNT;
+const LETTER_SLOT_CODE = 0;
+const LETTER_SLOT_COL = 1;
+//const LETTER_SLOT_ROW = 2;
+//const LETTER_SLOT_LEN = 4;
 
 const directionMap = {
     'KeyS': new V2(0, 1.0),
