@@ -102,11 +102,16 @@ function compileShaderSource(gl, source, shaderType) {
     return shader;
 }
 
-function linkShaderProgram(gl, shaders) {
+function linkShaderProgram(gl, shaders, vertexAttribs) {
     const program = gl.createProgram();
     for (let shader of shaders) {
         gl.attachShader(program, shader);
     }
+
+    for (let vertexName in vertexAttribs) {
+        gl.bindAttribLocation(program, vertexAttribs[vertexName], vertexName);
+    }
+
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
         throw new Error(`Could not link shader program: ${gl.getProgramInfoLog(program)}`);
@@ -160,14 +165,13 @@ void main() {
 
         let vertexShader = compileShaderSource(gl, this.vertexShaderSource, gl.VERTEX_SHADER);
         let fragmentShader = compileShaderSource(gl, this.fragmentShaderSource, gl.FRAGMENT_SHADER);
-        this.program = linkShaderProgram(gl, [vertexShader, fragmentShader]);
+        this.program = linkShaderProgram(gl, [vertexShader, fragmentShader], vertexAttribs);
         gl.useProgram(this.program);
 
         this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
         this.cameraPositionUniform = gl.getUniformLocation(this.program, 'cameraPosition');
         this.timeUniform = gl.getUniformLocation(this.program, 'time');
 
-        gl.bindAttribLocation(this.program, vertexAttribs['meshPosition'], 'meshPosition');
     }
 
     use() {
@@ -255,17 +259,13 @@ void main() {
 
         let vertexShader = compileShaderSource(gl, this.vertexShaderSource, gl.VERTEX_SHADER);
         let fragmentShader = compileShaderSource(gl, this.fragmentShaderSource, gl.FRAGMENT_SHADER);
-        this.program = linkShaderProgram(gl, [vertexShader, fragmentShader]);
+        this.program = linkShaderProgram(gl, [vertexShader, fragmentShader], vertexAttribs);
         gl.useProgram(this.program);
 
         this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
         this.cameraPositionUniform = gl.getUniformLocation(this.program, 'cameraPosition');
         this.graynessUniform = gl.getUniformLocation(this.program, 'grayness');
 
-        gl.bindAttribLocation(this.program, vertexAttribs['meshPosition'], 'meshPosition');
-        gl.bindAttribLocation(this.program, vertexAttribs['circleCenter'], 'circleCenter');
-        gl.bindAttribLocation(this.program, vertexAttribs['circleRadius'], 'circleRadius');
-        gl.bindAttribLocation(this.program, vertexAttribs['circleColor'], 'circleColor');
     }
 
     use() {
