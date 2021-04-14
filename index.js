@@ -119,6 +119,8 @@ function linkShaderProgram(gl, shaders, vertexAttribs) {
     return program;
 }
 
+// TODO: BitmapFontProgram does not support viewport scaling
+// TODO: BitmapFontProgram does not support newlines
 class BitmapFontProgram {
     vertexShaderSource = `#version 100
 
@@ -129,8 +131,8 @@ attribute float letterIndex;
 attribute float letter;
 
 uniform vec2 resolution;
-uniform vec2 messagePosition;
 uniform float messageScale;
+uniform float letterCount;
 
 varying vec2 uv;
 
@@ -142,7 +144,10 @@ varying vec2 uv;
 #define FONT_CHAR_HEIGHT (FONT_SHEET_HEIGHT / FONT_SHEET_ROWS)
 
 void main() {
-    // float letterIndex = 1.0;
+    float messageWidth = letterCount * float(FONT_CHAR_WIDTH) * messageScale;
+    float messageHeight = float(FONT_CHAR_HEIGHT) * messageScale;
+    vec2 messagePosition = vec2(messageWidth, messageHeight) * -0.5;
+
     vec2 meshPositionUV = (meshPosition + vec2(1.0, 1.0)) / 2.0;
     vec2 screenPosition = 
         meshPositionUV * vec2(float(FONT_CHAR_WIDTH), float(FONT_CHAR_HEIGHT)) * messageScale +
@@ -183,12 +188,12 @@ void main() {
         gl.useProgram(this.program);
 
         this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
-        this.messagePositionUniform = gl.getUniformLocation(this.program, 'messagePosition');
         this.messageScaleUniform = gl.getUniformLocation(this.program, 'messageScale');
         gl.uniform1f(this.messageScaleUniform, 5.0);
         this.messageColorUniform = gl.getUniformLocation(this.program, 'messageColor');
         gl.uniform4f(this.messageColorUniform, 1.0, 1.0, 1.0, 1.0);
         this.timeUniform = gl.getUniformLocation(this.program, 'time');
+        this.letterCountUniform = gl.getUniformLocation(this.program, 'letterCount');
     }
 
     use() {
@@ -214,6 +219,7 @@ void main() {
     }
 
     draw(letterCount) {
+        this.gl.uniform1f(this.letterCountUniform, letterCount);
         this.ext.drawArraysInstancedANGLE(this.gl.TRIANGLES, 0, TRIANGLE_PAIR * TRIANGLE_VERTICIES, letterCount);
     }
 }
