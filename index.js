@@ -119,7 +119,6 @@ function linkShaderProgram(gl, shaders, vertexAttribs) {
     return program;
 }
 
-// TODO: BitmapFontProgram does not support viewport scaling
 class BitmapFontProgram {
     vertexShaderSource = `#version 100
 
@@ -610,18 +609,19 @@ class RendererWebGL {
             this.bitmapFontProgram.setViewport(this.resolution.x, this.resolution.y);
             this.bitmapFontProgram.setTimestamp(this.timestamp);
 
-            this.bitmapFontProgram.setMessageScale(FONT_MESSAGE_SCALE);
+            const scale = FONT_MESSAGE_SCALE * (1.0 / this.unitsPerPixel);
+            this.bitmapFontProgram.setMessageScale(scale);
             for (let [text, color] of this.messages) {
                 this.bitmapFontProgram.setColor(color);
 
                 const lines = text.split('\n');
-                const message_height = lines.length * FONT_CHAR_HEIGHT * FONT_MESSAGE_SCALE;
+                const message_height = lines.length * FONT_CHAR_HEIGHT * scale;
                 for (let row = 0; row < lines.length; ++row) {
                     const line = lines[row];
 
                     this.bitmapFontProgram.setMessagePosition(
-                        line.length * FONT_CHAR_WIDTH * FONT_MESSAGE_SCALE * -0.5,
-                        message_height * 0.5 - (row + 1) * FONT_CHAR_HEIGHT * FONT_MESSAGE_SCALE);
+                        line.length * FONT_CHAR_WIDTH * scale * -0.5,
+                        message_height * 0.5 - (row + 1) * FONT_CHAR_HEIGHT * scale);
 
                     for (let i = 0; i < line.length && i < this.letterSlotBufferData.length; ++i) {
                         this.letterSlotBufferData[i * LETTER_SLOT_COUNT + LETTER_SLOT_CODE] = line.charCodeAt(i);
@@ -871,15 +871,13 @@ const LETTER_SLOTS_CAPACITY = 1024;
 const LETTER_SLOT_COUNT = VEC2_COUNT;
 const LETTER_SLOT_CODE = 0;
 const LETTER_SLOT_COL = 1;
-//const LETTER_SLOT_ROW = 2;
-//const LETTER_SLOT_LEN = 4;
 const FONT_SHEET_WIDTH = 128;
 const FONT_SHEET_HEIGHT = 64;
 const FONT_SHEET_COLS = 18;
 const FONT_SHEET_ROWS = 7;
 const FONT_CHAR_WIDTH = Math.floor(FONT_SHEET_WIDTH / FONT_SHEET_COLS);
 const FONT_CHAR_HEIGHT = Math.floor(FONT_SHEET_HEIGHT / FONT_SHEET_ROWS);
-const FONT_MESSAGE_SCALE = 5.0;
+const FONT_MESSAGE_SCALE = 10.0;
 
 const directionMap = {
     'KeyS': new V2(0, 1.0),
