@@ -1340,11 +1340,11 @@ class Game {
 let game = null;
 
 (() => {
-    const webgl = new URLSearchParams(document.location.search).has("webgl");
+    const legacy = new URLSearchParams(document.location.search).has("legacy");
 
     const canvas = document.getElementById("game-canvas");
     const renderer = (() => {
-        if (webgl) {
+        if (!legacy) {
             const gl = canvas.getContext("webgl");
             if (!gl) {
                 throw new Error(`Unable to initilize WebGL. Your browser probably does not support that.`);
