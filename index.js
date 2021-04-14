@@ -102,16 +102,126 @@ function compileShaderSource(gl, source, shaderType) {
     return shader;
 }
 
-function linkShaderProgram(gl, shaders) {
+function linkShaderProgram(gl, shaders, vertexAttribs) {
     const program = gl.createProgram();
     for (let shader of shaders) {
         gl.attachShader(program, shader);
     }
+
+    for (let vertexName in vertexAttribs) {
+        gl.bindAttribLocation(program, vertexAttribs[vertexName], vertexName);
+    }
+
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
         throw new Error(`Could not link shader program: ${gl.getProgramInfoLog(program)}`);
     }
     return program;
+}
+
+// TODO: BitmapFontProgram does not support viewport scaling
+// TODO: BitmapFontProgram does not support newlines
+class BitmapFontProgram {
+    vertexShaderSource = `#version 100
+
+precision mediump float;
+
+attribute vec2 meshPosition;
+attribute float letterIndex;
+attribute float letter;
+
+uniform vec2 resolution;
+uniform float messageScale;
+uniform float letterCount;
+
+varying vec2 uv;
+
+#define FONT_SHEET_WIDTH 128
+#define FONT_SHEET_HEIGHT 64
+#define FONT_SHEET_COLS 18
+#define FONT_SHEET_ROWS 7
+#define FONT_CHAR_WIDTH (FONT_SHEET_WIDTH / FONT_SHEET_COLS)
+#define FONT_CHAR_HEIGHT (FONT_SHEET_HEIGHT / FONT_SHEET_ROWS)
+
+void main() {
+    float messageWidth = letterCount * float(FONT_CHAR_WIDTH) * messageScale;
+    float messageHeight = float(FONT_CHAR_HEIGHT) * messageScale;
+    vec2 messagePosition = vec2(messageWidth, messageHeight) * -0.5;
+
+    vec2 meshPositionUV = (meshPosition + vec2(1.0, 1.0)) / 2.0;
+    vec2 screenPosition = 
+        meshPositionUV * vec2(float(FONT_CHAR_WIDTH), float(FONT_CHAR_HEIGHT)) * messageScale +
+        messagePosition +
+        vec2(float(FONT_CHAR_WIDTH) * messageScale * letterIndex, 0.0);
+
+    gl_Position = vec4(2.0 * screenPosition / resolution, 0.0, 1.0);
+
+    float charIndex = letter - 32.0;
+    float charU = (floor(mod(charIndex, float(FONT_SHEET_COLS))) + meshPositionUV.x) * float(FONT_CHAR_WIDTH) / float(FONT_SHEET_WIDTH);
+    float charV = (floor(charIndex / float(FONT_SHEET_COLS)) + (1.0 - meshPositionUV.y)) * float(FONT_CHAR_HEIGHT) / float(FONT_SHEET_HEIGHT);
+    uv = vec2(charU, charV);
+}
+`;
+
+    fragmentShaderSource = `#version 100
+
+precision mediump float;
+
+uniform sampler2D font;
+uniform vec4 messageColor;
+
+varying vec2 uv;
+
+void main() {
+    vec4 tex = texture2D(font, uv);
+    gl_FragColor = tex * vec4(messageColor.r, messageColor.g, messageColor.b, messageColor.a * tex.r);
+}
+`;
+
+    constructor(gl, ext, vertexAttribs) {
+        this.gl = gl;
+        this.ext = ext;
+
+        let vertexShader = compileShaderSource(gl, this.vertexShaderSource, gl.VERTEX_SHADER);
+        let fragmentShader = compileShaderSource(gl, this.fragmentShaderSource, gl.FRAGMENT_SHADER);
+        this.program = linkShaderProgram(gl, [vertexShader, fragmentShader], vertexAttribs);
+        gl.useProgram(this.program);
+
+        this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
+        this.messageScaleUniform = gl.getUniformLocation(this.program, 'messageScale');
+        gl.uniform1f(this.messageScaleUniform, 5.0);
+        this.messageColorUniform = gl.getUniformLocation(this.program, 'messageColor');
+        gl.uniform4f(this.messageColorUniform, 1.0, 1.0, 1.0, 1.0);
+        this.timeUniform = gl.getUniformLocation(this.program, 'time');
+        this.letterCountUniform = gl.getUniformLocation(this.program, 'letterCount');
+    }
+
+    use() {
+        this.gl.useProgram(this.program);
+    }
+
+    setColor(color) {
+        this.gl.uniform4f(this.messageColorUniform, color.r, color.g, color.b, color.a);
+    }
+
+    setViewport(width, height) {
+        const scale = Math.min(
+            width / DEFAULT_RESOLUTION.w,
+            height / DEFAULT_RESOLUTION.h,
+        );
+
+        this.unitsPerPixel = 1 / scale;
+        this.gl.uniform2f(this.resolutionUniform, width, height);
+    }
+
+    setTimestamp(timestamp) {
+        this.gl.uniform1f(this.timeUniform, timestamp);
+    }
+
+    draw(letterCount) {
+        this.gl.uniform1f(this.letterCountUniform, letterCount);
+        this.ext.drawArraysInstancedANGLE(this.gl.TRIANGLES, 0, TRIANGLE_PAIR * TRIANGLE_VERTICIES, letterCount);
+    }
 }
 
 class BackgroundProgram {
@@ -160,14 +270,12 @@ void main() {
 
         let vertexShader = compileShaderSource(gl, this.vertexShaderSource, gl.VERTEX_SHADER);
         let fragmentShader = compileShaderSource(gl, this.fragmentShaderSource, gl.FRAGMENT_SHADER);
-        this.program = linkShaderProgram(gl, [vertexShader, fragmentShader]);
+        this.program = linkShaderProgram(gl, [vertexShader, fragmentShader], vertexAttribs);
         gl.useProgram(this.program);
 
         this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
         this.cameraPositionUniform = gl.getUniformLocation(this.program, 'cameraPosition');
         this.timeUniform = gl.getUniformLocation(this.program, 'time');
-
-        gl.bindAttribLocation(this.program, vertexAttribs['meshPosition'], 'meshPosition');
     }
 
     use() {
@@ -192,7 +300,7 @@ void main() {
         this.gl.uniform1f(this.timeUniform, timestamp);
     }
 
-    draw(circlesCount) {
+    draw() {
         this.gl.drawArrays(this.gl.TRIANGLES, 0, TRIANGLE_PAIR * TRIANGLE_VERTICIES);
     }
 }
@@ -255,17 +363,13 @@ void main() {
 
         let vertexShader = compileShaderSource(gl, this.vertexShaderSource, gl.VERTEX_SHADER);
         let fragmentShader = compileShaderSource(gl, this.fragmentShaderSource, gl.FRAGMENT_SHADER);
-        this.program = linkShaderProgram(gl, [vertexShader, fragmentShader]);
+        this.program = linkShaderProgram(gl, [vertexShader, fragmentShader], vertexAttribs);
         gl.useProgram(this.program);
 
         this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
         this.cameraPositionUniform = gl.getUniformLocation(this.program, 'cameraPosition');
         this.graynessUniform = gl.getUniformLocation(this.program, 'grayness');
 
-        gl.bindAttribLocation(this.program, vertexAttribs['meshPosition'], 'meshPosition');
-        gl.bindAttribLocation(this.program, vertexAttribs['circleCenter'], 'circleCenter');
-        gl.bindAttribLocation(this.program, vertexAttribs['circleRadius'], 'circleRadius');
-        gl.bindAttribLocation(this.program, vertexAttribs['circleColor'], 'circleColor');
     }
 
     use() {
@@ -301,15 +405,38 @@ class RendererWebGL {
         "circleCenter": 1,
         "circleRadius": 2,
         "circleColor": 3,
+        "letter": 4,
+        "letterIndex": 5,
     };
 
     constructor(gl, ext) {
         this.gl = gl;
         this.ext = ext;
         this.circlesCount = 0;
+        this.messages = [];
 
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+        // Bitmap Font
+        {
+            const bitmapFontImage = document.getElementById('bitmap-font');
+            let bitmapFontTexture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, bitmapFontTexture);
+            gl.texImage2D(
+                gl.TEXTURE_2D,    // target
+                0,                // level
+                gl.RGBA,          // internalFormat
+                gl.RGBA,          // srcFormat
+                gl.UNSIGNED_BYTE, // srcType
+                bitmapFontImage   // image
+            );
+
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        }
 
         // Mesh Position
         {
@@ -397,8 +524,53 @@ class RendererWebGL {
             ext.vertexAttribDivisorANGLE(circleColorAttrib, 1);
         }
 
+
+        // Letter
+        {
+            this.letterBufferData = new Float32Array(LETTERS_CAPACITY);
+
+            this.letterBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.letterBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, this.letterBufferData, gl.DYNAMIC_DRAW);
+            
+            const letterAttrib = this.vertexAttribs['letter'];
+            gl.vertexAttribPointer(
+                letterAttrib,
+                1,
+                gl.FLOAT,
+                false,
+                0,
+                0);
+            gl.enableVertexAttribArray(letterAttrib);
+            ext.vertexAttribDivisorANGLE(letterAttrib, 1);
+        }
+
+        // Letter Index
+        {
+            this.letterIndexBufferData = new Float32Array(LETTERS_CAPACITY);
+            for (let i = 0; i < LETTERS_CAPACITY; ++i) {
+                this.letterIndexBufferData[i] = i;
+            }
+
+            this.letterIndexBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.letterIndexBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, this.letterIndexBufferData, gl.STATIC_DRAW);
+            
+            const letterIndexAttrib = this.vertexAttribs['letterIndex'];
+            gl.vertexAttribPointer(
+                letterIndexAttrib,
+                1,
+                gl.FLOAT,
+                false,
+                0,
+                0);
+            gl.enableVertexAttribArray(letterIndexAttrib);
+            ext.vertexAttribDivisorANGLE(letterIndexAttrib, 1);
+        }
+
         this.backgroundProgram = new BackgroundProgram(gl, this.vertexAttribs);
         this.circlesProgram = new CirclesProgram(gl, ext, this.vertexAttribs);
+        this.bitmapFontProgram = new BitmapFontProgram(gl, ext, this.vertexAttribs);
     }
 
     // RENDERER INTERFACE //////////////////////////////
@@ -456,12 +628,31 @@ class RendererWebGL {
             this.circlesProgram.setGrayness(this.grayness);
             this.circlesProgram.draw(this.circlesCount);
         }
+
+        // Call the Bitmap Font Program
+        {
+            this.bitmapFontProgram.use();
+            this.bitmapFontProgram.setViewport(this.resolution.x, this.resolution.y);
+            this.bitmapFontProgram.setTimestamp(this.timestamp);
+
+            for (let [text, color] of this.messages) {
+                for (let i = 0; i < text.length && i < this.letterBufferData.length; ++i) {
+                    this.letterBufferData[i] = text.charCodeAt(i);
+                }
+                this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.letterBuffer);
+                this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.letterBufferData);
+
+                this.bitmapFontProgram.setColor(color);
+                this.bitmapFontProgram.draw(text.length);
+            }
+        }
     }
 
     clear() {
         this.circlesCount = 0;
         this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.messages.length = 0;
     }
 
     background() {
@@ -485,7 +676,7 @@ class RendererWebGL {
     }
 
     fillMessage(text, color) {
-        // TODO: RendererWebGL.fillMessage() is not implemented
+        this.messages.push([text, color]);
     }
 
     screenToWorld(point) {
@@ -688,6 +879,7 @@ const BACKGROUND_CELL_POINTS = (() => {
     return points;
 })();
 const CIRCLE_BATCH_CAPACITY = 1024 * 10;
+const LETTERS_CAPACITY = 1024;
 
 const directionMap = {
     'KeyS': new V2(0, 1.0),
