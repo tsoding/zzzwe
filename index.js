@@ -131,7 +131,6 @@ attribute float letter;
 uniform vec2 resolution;
 uniform vec2 messagePosition;
 uniform float messageScale;
-uniform vec4 messageColor;
 
 varying vec2 uv;
 
@@ -164,11 +163,13 @@ void main() {
 precision mediump float;
 
 uniform sampler2D font;
+uniform vec4 messageColor;
 
 varying vec2 uv;
 
 void main() {
-    gl_FragColor = texture2D(font, uv);
+    vec4 tex = texture2D(font, uv);
+    gl_FragColor = tex * vec4(messageColor.r, messageColor.g, messageColor.b, messageColor.a * tex.r);
 }
 `;
 
@@ -184,13 +185,18 @@ void main() {
         this.resolutionUniform = gl.getUniformLocation(this.program, 'resolution');
         this.messagePositionUniform = gl.getUniformLocation(this.program, 'messagePosition');
         this.messageScaleUniform = gl.getUniformLocation(this.program, 'messageScale');
-        gl.uniform1f(this.messageScaleUniform, 1.0);
+        gl.uniform1f(this.messageScaleUniform, 5.0);
         this.messageColorUniform = gl.getUniformLocation(this.program, 'messageColor');
+        gl.uniform4f(this.messageColorUniform, 1.0, 1.0, 1.0, 1.0);
         this.timeUniform = gl.getUniformLocation(this.program, 'time');
     }
 
     use() {
         this.gl.useProgram(this.program);
+    }
+
+    setColor(color) {
+        this.gl.uniform4f(this.messageColorUniform, color.r, color.g, color.b, color.a);
     }
 
     setViewport(width, height) {
@@ -630,6 +636,7 @@ class RendererWebGL {
                 this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.letterBuffer);
                 this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.letterBufferData);
 
+                this.bitmapFontProgram.setColor(color);
                 this.bitmapFontProgram.draw(text.length);
             }
         }
@@ -639,8 +646,7 @@ class RendererWebGL {
         this.circlesCount = 0;
         this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-        // TODO: does `this.messages.length = 0` work?
-        this.messages = [];
+        this.messages.length = 0;
     }
 
     background() {
