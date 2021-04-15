@@ -800,6 +800,7 @@ class Game {
         this.enemySpawnRate = ENEMY_SPAWN_COOLDOWN;
         this.enemySpawnCooldown = ENEMY_SPAWN_COOLDOWN;
         this.paused = false;
+        this.switchedToLandscape = false;
         this.renderer.cameraPos = new V2(0.0, 0.0);
         this.renderer.cameraVel = new V2(0.0, 0.0);
     }
@@ -926,8 +927,10 @@ class Game {
         } else if(this.player.health <= 0.0) {
             const accuracy = Math.ceil(100 * this.player.accuracy / Math.max(this.player.shootCount, 1.0));
             this.renderer.fillMessage(`YOUR SCORE: ${this.score}\nACCURACY: ${accuracy}%\n(SPACE or touch to restart)`, MESSAGE_COLOR);
-        } else {
+        } else if (this.tutorial.state != TutorialState.Finished) {
             this.tutorial.render(this.renderer);
+        } else if (this.switchedToLandscape) {
+            this.renderer.fillMessage(`Tap to enter full screen mode`, MESSAGE_COLOR);
         }
 
         this.renderer.present();
@@ -1009,6 +1012,10 @@ class Game {
             return;
         }
         this.tutorial.playerMoved();
+        if (game.switchedToLandscape) {
+            game.switchedToLandscape = false;
+            document.body.requestFullscreen();
+        }
         Array.from(event.changedTouches).forEach(touch => {
             if (touch.clientX < window.innerWidth / 2) {
                 if (this.movingTouchId === undefined) {
@@ -1140,9 +1147,13 @@ let game = null;
 
     window.addEventListener("orientationchange", (event) => {
         const angle = Math.abs(event.target.screen.orientation.angle);
+        game.switchedToLandscape = false;
         if (angle === 90 || angle === 270) {
-            document.body.requestFullscreen()
-                .catch(error => console.error(`${error.message}. API can only be initiated after user gesture.`));
+            document.body.requestFullscreen().catch(error => {
+                // This error can happen if user never touched screen after entering game
+                // or after last exit from full screen mode.
+                game.switchedToLandscape = true;
+            });
         } else if (document.fullscreenElement){
             document.exitFullscreen();
         }
