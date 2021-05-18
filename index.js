@@ -830,6 +830,7 @@ const PLAYER_COLOR = Color.hex("#f43841");
 const PLAYER_SPEED = 1000;
 const PLAYER_RADIUS = 69;
 const PLAYER_MAX_HEALTH = 100;
+const PLAYER_SHOOT_COOLDOWN = 0.25 / 2.0;
 const PLAYER_TRAIL_RATE = 3.0;
 const TUTORIAL_POPUP_SPEED = 1.7;
 const BULLET_RADIUS = 42;
@@ -1103,6 +1104,8 @@ class Trail {
 
 class Player {
     health = PLAYER_MAX_HEALTH;
+    shooting = false;
+    lastShoot = 0.0;
     trail = new Trail(PLAYER_RADIUS, PLAYER_COLOR, PLAYER_TRAIL_RATE);
 
     constructor(pos) {
@@ -1127,6 +1130,7 @@ class Player {
 
     shootAt(target) {
         this.shootCount += 1;
+        this.lastShoot = performance.now() * 0.001;
         const bulletDir = target
               .sub(this.pos)
               .normalize();
@@ -1203,6 +1207,11 @@ class Game {
         }
 
         this.player.update(dt, vel);
+        if (this.player.shooting) {
+            if (performance.now() * 0.001 - this.player.lastShoot > PLAYER_SHOOT_COOLDOWN) {
+                this.bullets.push(this.player.shootAt(this.renderer.screenToWorld(this.mousePos)));
+            }
+        }
 
         this.tutorial.update(dt);
 
@@ -1317,6 +1326,7 @@ class Game {
     }
 
     mouseMove(event) {
+        this.mousePos = new V2(event.offsetX, event.offsetY);
     }
 
     mouseDown(event) {
@@ -1328,9 +1338,14 @@ class Game {
             return;
         }
 
+        this.player.shooting = true;
         this.tutorial.playerShot();
-        const mousePos = new V2(event.offsetX, event.offsetY);
-        this.bullets.push(this.player.shootAt(this.renderer.screenToWorld(mousePos)));
+        this.mousePos = new V2(event.offsetX, event.offsetY);
+        this.bullets.push(this.player.shootAt(this.renderer.screenToWorld(this.mousePos)));
+    }
+
+    mouseUp(event) {
+        this.player.shooting = false;
     }
 }
 
@@ -1412,6 +1427,10 @@ let game = null;
 
     document.addEventListener('pointerdown', event => {
         game.mouseDown(event);
+    });
+
+    document.addEventListener('pointerup', event => {
+        game.mouseUp(event);
     });
 
     window.addEventListener('resize', event => {
