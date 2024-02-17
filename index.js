@@ -1013,6 +1013,7 @@ const TutorialState = Object.freeze({
     "Finished": 2,
 });
 
+// TODO: Add a tutorial for devices with touch input
 const TutorialMessages = Object.freeze([
     "WASD to move",
     "Left Mouse Click to shoot",
@@ -1161,6 +1162,12 @@ class Game {
         this.player = new Player(new V2(0, 0));
         this.score = 0;
         this.mousePos = new V2(0, 0);
+        this.movingTouchId = undefined;
+        this.movingTouchStart = new V2(0.0, 0.0);
+        this.movingTouchDirection = new V2(0.0, 0.0);
+        this.shootingTouchId = undefined;
+        this.shootingTouchStart = new V2(0.0, 0.0);
+        this.shootingTouchDirection = new V2(0.0, 0.0);
         this.pressedKeys = new Set();
         this.tutorial = new Tutorial();
         this.bullets = [];
@@ -1201,7 +1208,7 @@ class Game {
                 moved = true;
             }
         }
-        vel = vel.normalize().scale(PLAYER_SPEED);
+        vel = vel.add(this.movingTouchDirection).normalize().scale(PLAYER_SPEED);
         if (moved) {
             this.tutorial.playerMoved();
         }
@@ -1209,7 +1216,8 @@ class Game {
         this.player.update(dt, vel);
         if (this.player.shooting) {
             if (performance.now() * 0.001 - this.player.lastShoot > PLAYER_SHOOT_COOLDOWN) {
-                this.bullets.push(this.player.shootAt(this.renderer.screenToWorld(this.mousePos)));
+                const shootingTarget = this.shootingTouchId === undefined ? this.renderer.screenToWorld(this.mousePos) : this.player.target
+                this.bullets.push(this.player.shootAt(shootingTarget));
             }
         }
 
@@ -1347,6 +1355,58 @@ class Game {
     mouseUp(event) {
         this.player.shooting = false;
     }
+
+    touchMove(event) {
+        Array.from(event.changedTouches).forEach(touch => {
+            if (touch.identifier === this.movingTouchId) {
+                this.movingTouchDirection = new V2(touch.clientX, touch.clientY).sub(this.movingTouchStart);
+            }
+            if (touch.identifier === this.shootingTouchId) {
+                this.shootingTouchDirection = new V2(touch.clientX, touch.clientY).sub(this.shootingTouchStart).scale(1000);
+                this.player.target = this.player.pos.add(this.shootingTouchDirection);
+                this.player.shooting = true;
+            }
+        })
+    }
+
+    touchDown(event) {
+        if (this.paused) {
+            this.paused = false;
+            return;
+        }
+
+        if (this.player.health <= 0.0) {
+            this.restart();
+            return;
+        }
+        this.tutorial.playerMoved();
+        Array.from(event.changedTouches).forEach(touch => {
+            if (touch.clientX < window.innerWidth / 2) {
+                if (this.movingTouchId === undefined) {
+                    this.movingTouchId = touch.identifier;
+                    this.movingTouchStart = new V2(touch.clientX, touch.clientY);
+                }
+            } else {
+                if (this.shootingTouchId === undefined) {
+                    this.shootingTouchId = touch.identifier;
+                    this.shootingTouchStart = new V2(touch.clientX, touch.clientY);
+                }
+            }
+        })
+    }
+
+    touchUp(event) {
+        Array.from(event.changedTouches).forEach(touch => {
+            if (this.movingTouchId === touch.identifier) {
+                this.movingTouchId = undefined;
+                this.movingTouchDirection = new V2(0.0, 0.0);
+            }
+            if (this.shootingTouchId === touch.identifier) {
+                this.shootingTouchId = undefined;
+                this.player.shooting = false;
+            }
+        });
+    }
 }
 
 // Resolution at which the game scale will be 1 unit per pixel
@@ -1411,8 +1471,6 @@ let game = null;
 
     window.requestAnimationFrame(step);
 
-    // TODO(#30): game is not playable on mobile without external keyboard
-
     document.addEventListener('keydown', event => {
         game.keyDown(event);
     });
@@ -1421,16 +1479,28 @@ let game = null;
         game.keyUp(event);
     });
 
-    document.addEventListener('pointermove', event => {
+    document.addEventListener('mousemove', event => {
         game.mouseMove(event);
     });
 
-    document.addEventListener('pointerdown', event => {
+    document.addEventListener('mousedown', event => {
         game.mouseDown(event);
     });
 
-    document.addEventListener('pointerup', event => {
+    document.addEventListener('mouseup', event => {
         game.mouseUp(event);
+    });
+
+    document.addEventListener('touchmove', event => {
+        game.touchMove(event);
+    });
+
+    document.addEventListener('touchstart', event => {
+        game.touchDown(event);
+    });
+
+    document.addEventListener('touchend', event => {
+        game.touchUp(event);
     });
 
     window.addEventListener('resize', event => {
